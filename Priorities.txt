@@ -1,0 +1,30 @@
+Top 5 - Focus on these
+
+Basic command line
+Chord table / ring
+Manifests / repos / serialization
+Monad / Traversable
+Networked communication
+
+Top 6 - 25 - Avoid these
+
+Authentication
+Encryption
+Storage settings - cipher / hash choice, chunk size, etc
+User identities
+Advanced ring settings
+Data checksums
+Certificate generation
+File system mounting
+Interactive repl
+Designated storage
+Passphrase / key generator
+Shell / scripting hooks
+Secure password / key storage
+Advanced commands - clone repo, to-local, from-local, etc
+Per-file/entry options
+HTTP server
+Schemas / Services
+Ring directories
+Node settings
+Advanced networking / caching

@@ -1,0 +1,56 @@
+name:                caligo
+version:             0.1.0.0
+synopsis:            Caligo DHT - distributed data storage
+description:         Please see README.md
+homepage:            https://github.com/githubuser/caligo#readme
+license:             BSD3
+license-file:        LICENSE
+author:              Author name here
+maintainer:          example@example.com
+copyright:           2016 Author name here
+category:            Web
+build-type:          Simple
+-- extra-source-files:
+cabal-version:       >=1.10
+
+library
+  hs-source-dirs:      src
+  exposed-modules:
+      Caligo
+  -- other-modules:
+  build-depends:
+      base >= 4.7 && < 5
+    , aeson
+    , aeson-pretty
+    , base16-bytestring
+    , base64-bytestring
+    , bytestring
+    , containers
+    , directory
+    , filepath
+    -- , distributed-process >= 0.6.0
+    -- , network-transport-tcp >= 0.5.1
+  default-language:    Haskell2010
+
+executable caligo
+  hs-source-dirs:      exe
+  main-is:             Main.hs
+  other-modules:
+      Caligo.Runtime
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base
+    , base16-bytestring
+    , base64-bytestring
+    , bytestring
+    , caligo
+    , containers
+    , directory
+    , filepath
+    , optparse-applicative
+  default-language:
+      Haskell2010
+
+source-repository head
+  type:     git
+  location: https://github.com/githubuser/caligo
