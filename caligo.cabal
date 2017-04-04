@@ -16,20 +16,66 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:
-      Caligo
+      Caligo.Bytes
+    , Caligo.Encodable
+    , Caligo.Logs
+    , Caligo.Misc
+    -- , Caligo.Distributed
+    , Caligo.Distributed.Keyspace
+    -- , Caligo.Security
+    , Caligo.Security.Hash
+    , Caligo.Security.Cipher
+    -- , Caligo.Repo
+    , Caligo.Repo.Blocks
+    , Caligo.Repo.Config
+    , Caligo.Repo.Ignore
+    , Caligo.Repo.Manifest
+    , Caligo.Repo.Path
+    , Caligo.Repo.Repo
+    , Caligo.Repo.Types
+    , Caligo.Repo.Watcher
   -- other-modules:
   build-depends:
+    -- Base
       base >= 4.7 && < 5
+
+    -- Data structures
+    , bytestring
+    , containers
+    , text
+
+    -- Logging
+    -- , logger -- Later when I have the time
+
+    -- Network
+    , distributed-process >= 0.6.0
+    , network
+    , network-transport
+    , network-transport-tcp >= 0.5.1
+
+    -- OS
+    , directory
+    , filepath
+
+    -- Security / hashing / one-way functions
+    , cryptonite
+    , memory
+      -- `memory` is not just for cryptonite - see ScrubbedBytes
+
+    -- Serialization / encoding / binary
     , aeson
     , aeson-pretty
     , base16-bytestring
     , base64-bytestring
-    , bytestring
-    , containers
-    , directory
-    , filepath
-    -- , distributed-process >= 0.6.0
-    -- , network-transport-tcp >= 0.5.1
+    , bits-bytestring
+    , cereal
+    -- , pretty-show
+    , Glob
+    , yaml
+    , zlib
+
+    -- Watcher
+    , fsnotify
   default-language:    Haskell2010
 
 executable caligo
@@ -37,7 +83,10 @@ executable caligo
   main-is:             Main.hs
   other-modules:
       Caligo.Runtime
+    , Caligo.Runtime.Commands
+    , Caligo.Runtime.Options
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  -- TODO: Add optimizations: -O2 -dynamic
   build-depends:
       base
     , base16-bytestring

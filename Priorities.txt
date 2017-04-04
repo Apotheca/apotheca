@@ -10,9 +10,9 @@ Top 6 - 25 - Avoid these
 
 Authentication
 Encryption
-Storage settings - cipher / hash choice, chunk size, etc
+Storage Config - cipher / hash choice, chunk size, etc
 User identities
-Advanced ring settings
+Advanced ring Config
 Data checksums
 Certificate generation
 File system mounting
@@ -26,5 +26,5 @@ Per-file/entry options
 HTTP server
 Schemas / Services
 Ring directories
-Node settings
+Node Config
 Advanced networking / caching

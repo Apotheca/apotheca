@@ -4,81 +4,110 @@ module Caligo.Runtime
 
 import           Options.Applicative
 
+import           Data.Maybe
+
 import           System.Directory
+import           System.Environment
 import           System.FilePath
 import           System.IO
 
+-- import           Caligo.Encodable
+import           Caligo.Logs
+import           Caligo.Repo.Path
+import           Caligo.Repo.Repo
+
+import           Caligo.Runtime.Commands
+import           Caligo.Runtime.Options
+
+
+-- TODO: CAL-DIR shell environment variable to point to default repo if one
+--  isn't found up-hierarchy or specified in command line.
+
+
 execRuntime :: IO ()
 execRuntime = do
-  setupConsole
+  hSetBuffering stdout LineBuffering
   opts <- getOptions
-  putStrLn $ concat [ "Options were: ", show opts ]
-  -- (repo, cmd) <- getState opts
-  -- runCmd $ optCommand opts
+  case optCommand opts of
+    NoCommand -> do
+      -- Show help
+      withArgs ["--help"] getOptions
+      return ()
+    cmd -> buildEnv opts >>= runCommand cmd
 
-setupConsole = do
-  hSetBuffering stdout NoBuffering
+buildEnv :: RuntimeOptions -> IO Env
+buildEnv opts = do
+    verbose v "Building environment..."
+    -- cwd <- getCurrentDirectory
+    cwd <- getCurrentDirectory >>= fixPath
+    debug v $ "Cwd is: " ++ cwd
+    --
+    -- sd <- buildStoreDir opts cwd
+    sd <- buildStoreDir opts cwd >>= fixPath
+    debug v $ "STOREDIR set: " ++ sd
+    --
+    -- let ewd = fromMaybe cwd $ optExtDir opts
+    ewd <- fixPath . fromMaybe cwd $ optExtDir opts
+    debug v $ "EXTDIR set: " ++ ewd
+    --
+    iwd <- case optIntDir opts of
+      Just i -> return i
+      Nothing -> buildIntDir opts sd ewd
+    debug v $ "INTDIR set: " ++ toFilePath iwd
+    -- Done
+    verbose v "Environment constructed!"
+    return defaultEnv
+      { repoDir = sd
+      , extDir = ewd
+      , intDir = iwd
+      , verbosity = v
+      }
+  where
+    v = getVerb opts
+    -- NOTE: Should we absolutize dirs?
+    -- fixPath p = normalise <$> makeAbsolute p
+    fixPath = canonicalizePath
+    -- fixPath p = return $ normalise p
 
-getOptions :: IO RuntimeOptions
-getOptions = execParser $ parseOptions `withInfo` "Manage Caligo storage."
+buildStoreDir :: RuntimeOptions -> FilePath -> IO FilePath
+buildStoreDir opts cwd = do
+    verbose v "Finding store dir..."
+    case optSearchDir opts of
+      Just sd -> do
+        exists <- doesRepoExist sd
+        debug v $ "Specified STOREDIR: " ++ sd
+        debug v $ "Exists? " ++ show exists
+        return sd
+      Nothing -> do
+        debug v "Unspecified STOREDIR, searching upwards..."
+        fr <- findRepo cwd
+        case fr of
+          Just fr' -> debug v $ "Found STOREDIR: " ++ show fr'
+          Nothing -> debug v "STOREDIR not found; defaulting to cwd"
+        return $ fromMaybe cwd fr
+  where
+    v = getVerb opts
 
-withInfo :: Parser a -> String -> ParserInfo a
-withInfo opts desc = info (helper <*> opts)
-  $ fullDesc
-  <> progDesc desc
-  <> header "Caligo DHT - distributed data storage"
-  <> footer "Goodbye."
+-- NOTE: ".." in STOREDIR or EXTDIR breaks INTDIR magic
+-- TODO: Warn users about needing explicit INTDIR if STOREDIR or EXTDIR contain ".."
+buildIntDir :: RuntimeOptions -> FilePath -> FilePath -> IO Path
+buildIntDir opts sd ewd = do
+  verbose v "Applying magic..."
+  needsMagic <- doesHiddenRepoExist sd
+  case (needsMagic, i == ewd) of
+    (True, False) -> do
+      debug v $ "Applied INTDIR magic: " ++ toFilePath iwd
+      return iwd
+    (True, True) -> do
+      debug v "Magic cancelled - not within repo."
+      return []
+    _ -> do
+      debug v "Magic cancelled - no repo found."
+      return []
+  where
+    v = getVerb opts
+    i = makeRelative sd ewd
+    iwd = fromFilePath i
 
-data RuntimeOptions = Options {
-  optRepoDir :: Maybe FilePath
-, optCommand :: RuntimeCommand
-} deriving (Show, Read, Eq)
-
-data RuntimeCommand
-  = NoCommand
-  -- Repo management
-  | New
-  | Nuke Bool
-  | Info
-  -- Map-like
-  | Get
-  | Put
-  | Del
-  | List
-  deriving (Show, Read, Eq)
-
-parseOptions :: Parser RuntimeOptions
-parseOptions = Options
-  <$> parseStoreDir
-  <*> parseCommand
-
-parseStoreDir :: Parser (Maybe FilePath)
-parseStoreDir = optional $ strOption
-  ( short 's'
-  <> long "store"
-  <> metavar "STORE"
-  <> help "Caligo store directory"
-  )
-
--- makeCommand :: String -> String -> Parser RuntimeCommand -> Parser RuntimeCommand
-makeCommand :: String -> String -> Parser RuntimeCommand -> Mod CommandFields RuntimeCommand
-makeCommand cmd info parser = command cmd $ parser `withInfo` info
-
-parseCommand :: Parser RuntimeCommand
-parseCommand = subparser
-  ( makeCommand "new" "Initialize a store." (pure New)
-  <> makeCommand "nuke" "Nuke a store." parseNuke
-  <> makeCommand "info" "Print store environment info." (pure Info)
-  <> makeCommand "get" "Get a file from storage." (pure Get)
-  <> makeCommand "put" "Put a file into storage." (pure Put)
-  <> makeCommand "del" "Delete a file from storage." (pure Del)
-  <> makeCommand "list" "List files in storage." (pure List)
-  ) <|> pure NoCommand
-
-parseNuke :: Parser RuntimeCommand
-parseNuke = Nuke
-  <$> switch
-    ( short 'f'
-    <> long "force"
-    <> help "Nuke without confirming."
-    )
+getVerb :: RuntimeOptions -> Verbosity
+getVerb = fromMaybe Warn . optVerbosity

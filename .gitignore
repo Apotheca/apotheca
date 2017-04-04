@@ -20,6 +20,3 @@ cabal.sandbox.config
 .stack-work/
 cabal.project.local
 .HTF/
-
-# Caligo gitignore
-.caligo
