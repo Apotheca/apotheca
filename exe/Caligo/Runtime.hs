@@ -60,14 +60,20 @@ buildEnv opts = do
       { repoDir = sd
       , extDir = ewd
       , intDir = iwd
+      , magicSlash = optMagicSlash opts
       , verbosity = v
       }
   where
     v = getVerb opts
     -- NOTE: Should we absolutize dirs?
     -- fixPath p = normalise <$> makeAbsolute p
-    fixPath = canonicalizePath
     -- fixPath p = return $ normalise p
+    fixPath p = do
+      a <- doesFileExist p
+      b <- doesDirectoryExist p
+      if a || b
+        then canonicalizePath p
+        else error $ "Path does not exist: " ++ p
 
 buildStoreDir :: RuntimeOptions -> FilePath -> IO FilePath
 buildStoreDir opts cwd = do

@@ -107,8 +107,7 @@ runCommand cmd e = do
     --  does not multiplex
     --  loses trailing slashes for intpath because Path is just a stub type
     -- TODO: This should be part of Caligo.Repo.IO or something, and used in Caligo.Repo.Repo
-    convertInt p = fromFilePath . dropTrailingPathSeparator
-      $ toFilePath (intDir e) </> p
+    convertInt p = toFilePath (intDir e) </> p
     convertExt p = extDir e </> p
 
 
@@ -166,13 +165,22 @@ runInfo e = do
 
 -- Map-like
 
-runList rc dst r = listPath rc dst r
+-- NOTE: No multiplexing on the list
+-- TODO: Multiplex on magic slash /only/ if explicitly set?
+runList rc dst r = listPath rc (fromFilePath dst) r
 
-runPut ow rp rc src dst r = putPath ow rp rc src dst r >>= void . persistRepo
+-- TODO: Multiplexing / trailing-sep handled HERE instead of in Repo
+-- runPut ow rp rc src dst r = putPath ow rp rc src dst r >>= void . persistRepo
+runPut ow rp rc src dst r = multiplex f src r >>= void . persistRepo
+  where f src' = putPath ow rp rc src' (fromFilePath dst)
 
-runGet ow rp rc src dst r = getPath ow rp rc src dst r >>= void . persistRepo
+-- runGet ow rp rc src dst r = getPath ow rp rc src dst r >>= void . persistRepo
+runGet ow rp rc src dst r = multiplex' f src r >>= void . persistRepo
+  where f src' = getPath ow rp rc src' dst
 
-runDel force dst r = delPath force dst r >>= void . persistRepo
+-- runDel force dst r = delPath force dst r >>= void . persistRepo
+runDel force dst r = multiplex' (delPath force) dst r >>= void . persistRepo
+
 
 
 -- Sync
@@ -230,6 +238,7 @@ envPairs e =
   , ("INTDIR", toFilePath $ intDir e)
   , ("MANIFEST", fromMaybe "DEFAULT" $ selManifest e)
   , ("DRYRUN", show $ dryRun e)
+  , ("MAGIC-SLASH", show $ magicSlash e)
   , ("VERBOSITY", show $ verbosity e)
   ]
 
@@ -237,9 +246,3 @@ printWatches :: [WatchStrategy] -> IO ()
 printWatches ws = putStrLn . unlines $ map ("\t" ++) ls
   where
     ls = filter (not . null) . lines . BC.unpack $ encodeYAML ws
-
--- TODO: Multiplex trailing-slash directories, and map command over resulting list
-multiplex :: FilePath -> (FilePath -> b -> IO b) -> b -> IO b
-multiplex p f a = if hasTrailingPathSeparator p
-  then getDirectory p >>= foldM (flip f) a
-  else f p a

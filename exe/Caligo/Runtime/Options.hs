@@ -30,11 +30,12 @@ withInfo opts desc = info (helper <*> opts)
   <> footer "Goodbye."
 
 data RuntimeOptions = Options {
-    optSearchDir :: Maybe FilePath
-  , optExtDir    :: Maybe FilePath
-  , optIntDir    :: Maybe Path
-  , optVerbosity :: Maybe Verbosity
-  , optCommand   :: RuntimeCommand
+    optSearchDir  :: Maybe FilePath
+  , optExtDir     :: Maybe FilePath
+  , optIntDir     :: Maybe Path
+  , optMagicSlash :: Bool
+  , optVerbosity  :: Maybe Verbosity
+  , optCommand    :: RuntimeCommand
   } deriving (Show, Read, Eq)
 
 parseOptions :: Parser RuntimeOptions
@@ -42,6 +43,7 @@ parseOptions = Options
   <$> parseRepoDir
   <*> parseExtDir
   <*> parseIntDir
+  <*> parseMagicSlash
   <*> parseVerbosity
   <*> parseCommand
 
@@ -81,6 +83,9 @@ parseIntDir = optional $ (fromFilePath <$> strOption
     \to the current directory relative to the store directory, or root if the \
     \current directory is not beneath the store directory."
   ))
+
+parseMagicSlash :: Parser Bool
+parseMagicSlash = flag True False (long "no-magic-slash" <> help "Disable magic slash")
 
 -- TODO: Change this to a --verbosity silent/fatal/warn/verbose/debug
 parseVerbosity :: Parser (Maybe Verbosity)

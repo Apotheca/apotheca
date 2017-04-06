@@ -44,6 +44,9 @@ module Caligo.Repo.Repo
 , globDirectoryIO
 , globDirectoryIO'
 , globDirectoryIO''
+
+-- Exposed for multiplexing, should be refactored
+, multiplex, multiplex'
 ) where
 
 import           Prelude                     hiding (readFile, writeFile)
@@ -133,6 +136,7 @@ data Env = Env
   -- , cipherStrat :: Maybe CipherStrategy -- Symmetric cipher use
   -- , exchangeStrat :: Maybe ExchangeStrategy -- Key exchange (asymmetric / pubkey)
   -- , signingStrat :: Maybe SigningStrategy  --
+  , magicSlash  :: Bool
   , verbosity   :: Verbosity
   } deriving (Show, Read, Generic)
 
@@ -148,6 +152,7 @@ defaultEnv = Env
   , intDir = []
   , selManifest = Nothing
   , dryRun = False
+  , magicSlash = True
   , verbosity = Warn
   }
 
@@ -454,42 +459,41 @@ listPath rc dst r = if queryManifest (Mf.pathExists dst) r
 -- TODO: Actually use replace-dirs flag
 putPath :: Bool -> Bool -> Bool -> FilePath -> Path -> Repo -> IO Repo
 putPath ow rp rc src dst r = do
-    when rp $ error "Flag --replace is not yet implemented"
     efexists <- doesFileExist src
     edexists <- doesDirectoryExist src
-    debug v $ unwords ["dst:",toFilePath dst]
     case (efexists, edexists) of
       (True,_) -> do -- File
         debug v $ "Reading file " ++ src
         bs <- B.readFile src
-        when (idexists fdst) $
-          error $ "Directory already exists at file target: " ++ toFilePath fdst
-        if (ow || (not $ ifexists fdst))
+        when (idexists dst') $
+          error $ "Directory already exists at file target: " ++ toFilePath dst'
+        if ow || not (ifexists dst')
           then do
-            verbose v $ "Putting: " ++ toFilePath fdst
-            putFile fdst bs r
+            verbose v $ "Putting: " ++ toFilePath dst'
+            putFile dst' bs r
           else do
-            error $ "File already exists; use -o to overwrite: " ++ toFilePath fdst
+            error $ "File already exists; use -o to overwrite: " ++ toFilePath dst'
             return r
       (_,True) -> do
-        verbose v $ "Putting: " ++ toFilePath ddst
-        when (ifexists ddst) $
-          error $ "File already exists at directory target: " ++ toFilePath fdst
-        r' <- return $ createDirectory ddst r
+        when (ifexists dst') $
+          error $ "File already exists at directory target: " ++ toFilePath dst'
+        r' <- if rp && idexists dst'
+          then do
+            verbose v $ "Replacing:" ++ toFilePath dst'
+            delPath True dst' r
+          else do
+            verbose v $ "Putting: " ++ toFilePath dst'
+            return $ createDirectory dst' r
         -- The filterM strips child directories if non-recursive
         getDirectory src >>= filterM filterChild >>= foldM putChild r
       _ -> error "Put error: Source path does not exist."
   where
     v = verbosity $ repoEnv r
     -- Directory dst
-    ddst = if hasTrailingPathSeparator src
-      then dst
-      else fromFilePath . normalise $ (toFilePath dst) </> takeFileName src
-    -- File dst
-    fdst = fromFilePath . normalise $ (toFilePath dst) </> takeFileName src
+    dst' = fromFilePath . normalise $ (toFilePath dst) </> takeFileName src
     ifexists p = queryManifest (Mf.pathIsFile p) r
     idexists p = queryManifest (Mf.pathIsDirectory p) r
-    putChild r src' = putPath ow rp rc src' ddst r
+    putChild r src' = putPath ow rp rc src' dst' r
     -- Filter files for recursive
     filterChild p = if rc
       then return True
@@ -499,10 +503,8 @@ putPath ow rp rc src dst r = do
 -- TODO: Fix trailing-slash support
 getPath :: Bool -> Bool -> Bool -> Path -> FilePath -> Repo -> IO Repo
 getPath ow rp rc src dst r = do
-    when rp $ error "Flag --replace is not yet implemented"
-    efexists <- doesFileExist fdst
-    edexists <- doesDirectoryExist ddst
-    debug v $ unwords ["src:",toFilePath src]
+    efexists <- doesFileExist dst'
+    edexists <- doesDirectoryExist dst'
     case (isf, isd) of
       (True,_) -> do -- File
         when edexists $
@@ -511,17 +513,24 @@ getPath ow rp rc src dst r = do
           then do
             verbose v $ "Getting: " ++ toFilePath src
             bs <- getFile src r
-            debug v $ "Writing file " ++ fdst
-            B.writeFile fdst bs
+            debug v $ "Writing file " ++ dst'
+            B.writeFile dst' bs
             return r
           else do
-            error $ "File already exists; use -o to overwrite: " ++ fdst
+            error $ "File already exists; use -o to overwrite: " ++ dst'
             return r
       (_,True) -> do -- Directory
-          verbose v $ "Putting: " ++ ddst
           when efexists $
-            error $ "File already exists at directory target: " ++ ddst
-          createDirectoryIfMissing True ddst
+            error $ "File already exists at directory target: " ++ dst'
+          if rp && edexists
+            then do
+              verbose v $ "Replacing:" ++ dst'
+              removeDirectoryRecursive dst'
+              -- createDirectoryIfMissing True dst'
+            else do
+              verbose v $ "Getting: " ++ dst'
+              -- createDirectoryIfMissing True dst'
+          createDirectoryIfMissing True dst'
           foldM getChild r $ filter filterChild $ readDirectory src r
       _ -> error "Get error: Source path does not exist."
     -- doesFileExist dst >>= (flip when) $ error "File exists at target."
@@ -529,12 +538,8 @@ getPath ow rp rc src dst r = do
     v = verbosity $ repoEnv r
     isf = queryManifest (Mf.pathIsFile src) r
     isd = queryManifest (Mf.pathIsDirectory src) r
-    -- File dst
-    fdst = normalise $ dst </> takeFileName (toFilePath src)
-    ddst = if False -- hasTrailingPathSeparator src
-      then dst
-      else normalise $ dst </> takeFileName (toFilePath src)
-    getChild r src' = getPath ow rp rc src' ddst r
+    dst' = normalise $ dst </> takeFileName (toFilePath src)
+    getChild r src' = getPath ow rp rc src' dst' r
     filterChild p = rc || Mf.pathIsFile p (repoManifest r)
 
 -- delPath - force, dst, repo
@@ -641,3 +646,21 @@ globDirectoryIO p pat = L.partition (G.match c) <$> getDirectoryRecursive p
 
 globDirectoryIO' p pat = fst <$> globDirectoryIO p pat
 globDirectoryIO'' p pat = snd <$> globDirectoryIO p pat
+
+
+
+-- Multiplexing
+isMagicSlash r = magicSlash (repoEnv r)
+
+-- Multiplexes on a trailing slash, external
+multiplex :: (FilePath -> Repo -> IO Repo) -> FilePath -> Repo -> IO Repo
+multiplex f p r = if isMagicSlash r && hasTrailingPathSeparator p
+  then  getDirectory p >>= foldM (flip f) r
+  else f p r
+
+-- Multiplex on internal paths
+multiplex' :: (Path -> Repo -> IO Repo) -> FilePath -> Repo -> IO Repo
+multiplex' f p r = if isMagicSlash r && hasTrailingPathSeparator p
+    then foldM (flip f) r $ readDirectory p' r
+    else f p' r
+  where p' = fromFilePath p
