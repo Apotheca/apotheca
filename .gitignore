@@ -20,3 +20,6 @@ cabal.sandbox.config
 .stack-work/
 cabal.project.local
 .HTF/
+
+# Hide the test folder, will need to edit this if I end up using test/ for something (such as unit testing)
+test/
