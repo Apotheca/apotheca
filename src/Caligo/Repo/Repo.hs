@@ -444,10 +444,10 @@ delFile p r = do
 --   , pRecurse = rc
 --   }
 
--- TODO: Append trailing slashes to dirs, print relative to ipath
-listPath :: Bool -> Path -> Repo -> IO ()
+-- TODO: Refactor, this should probably return a list of things instead...
+listPath :: Bool -> Path -> Repo -> IO [Path]
 listPath rc dst r = if queryManifest (Mf.pathExists dst) r
-    then mapM_ (putStrLn . toFilePath) paths
+    then return paths
     else Mf.pathNotExistErr
   where
     readDir = if rc then readDirectoryRecursive else readDirectory

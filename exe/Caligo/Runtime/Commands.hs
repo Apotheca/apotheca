@@ -57,7 +57,7 @@ data RuntimeCommand
   | Info
   -- | Find -- Something smarter than 'list'
   -- Map-like
-  | List Bool FilePath -- Recurse, dst
+  | List Bool Bool FilePath -- Recurse, tree, dst
   -- Overwrite files + replace [instead of merge] directories, recursive
   -- TODO: Add (rename :: String) option to get / put / params
   | Get Bool Bool Bool FilePath FilePath
@@ -95,7 +95,7 @@ runCommand cmd e = do
     _ -> do
       r <- openRepo e
       case cmd of
-        List rc dst -> runList rc (convertInt dst) r
+        List rc t dst -> runList rc t (convertInt dst) r
         Get ow rp rc src dst -> runGet ow rp rc (convertInt src) (convertExt dst) r
         Put ow rp rc src dst -> runPut ow rp rc (convertExt src) (convertInt dst) r
         Del force dst -> runDel force (convertInt dst) r
@@ -167,7 +167,13 @@ runInfo e = do
 
 -- NOTE: No multiplexing on the list
 -- TODO: Multiplex on magic slash /only/ if explicitly set?
-runList rc dst r = listPath rc (fromFilePath dst) r
+runList rc tree dst r = do
+    paths <- listPath rc (fromFilePath dst) r
+    mapM_ (putStrLn . tf) paths
+  where
+    tf = if tree
+      then error "--tree flag is not yet implemented"
+      else toFilePath
 
 -- TODO: Multiplexing / trailing-sep handled HERE instead of in Repo
 -- runPut ow rp rc src dst r = putPath ow rp rc src dst r >>= void . persistRepo

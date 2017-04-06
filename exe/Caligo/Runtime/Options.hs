@@ -148,6 +148,7 @@ parseNuke = Nuke <$> parseForce "Force removal without confirmation, ignoring er
 
 parseList = List
   <$> parseRecurse "List directories recursively."
+  <*> parseTree "Print results as tree."
   <*> parseIntPath
 
 parseGet = Get
@@ -250,6 +251,13 @@ parseRecurse :: String -> Parser Bool
 parseRecurse s = switch $
   ( short 'r'
   <> long "recurse" -- maybe should be recurse-children
+  <> help s
+  )
+
+parseTree :: String -> Parser Bool
+parseTree s = switch $
+  ( short 't'
+  <> long "tree"
   <> help s
   )
 
