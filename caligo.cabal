@@ -22,6 +22,8 @@ library
     , Caligo.Misc
     -- , Caligo.Distributed
     , Caligo.Distributed.Keyspace
+    -- , Caligo.Integrations
+    -- , Caligo.Integrations.Fuse
     -- , Caligo.Security
     , Caligo.Security.Hash
     , Caligo.Security.Cipher
@@ -46,6 +48,9 @@ library
 
     -- Logging
     -- , logger -- Later when I have the time
+
+    -- Mounting
+    -- , HFuse
 
     -- Network
     , distributed-process >= 0.6.0
