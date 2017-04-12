@@ -99,7 +99,7 @@ import           Apotheca.Security.Hash
 -- Git implementation reference:
 --  https://hackage.haskell.org/package/gitlib-0.6.5
 
--- File structure of repo data dir $ (is either ./ (bare) or ./.caligo/ (hidden))
+-- File structure of repo data dir $ (is either ./ (bare) or ./.apo/ (hidden))
 --  $/local/ -- Local block storage; for non-distributed repo or owned blocks
 --  $/cache/  -- Blocks cached to speed up network
 --  $/incoming/ -- Blocks downloaded and awaiting use
@@ -108,7 +108,7 @@ import           Apotheca.Security.Hash
 --  $/MANIFEST -- Repo data contents - single manifest for now
 --    Maybe rename 'CONTENTS' if going with multiple-manifests-per-repo style
 --  $/DISTRIBUTED -- Distributed repo / node config, optional)
---  ./.caligo -- A hidden FILE signifying a bare repo (otherwise is dir)
+--  ./.apo -- A hidden FILE signifying a bare repo (otherwise is dir)
 
 -- NOTE: This is all IO and context passing right now
 --  Will promote it to a monad later, maybe (MonadIo m) => m a, or STM/TVar
@@ -195,7 +195,7 @@ isBare = (== BareRepo) . repoType . repoEnv
 
 -- Data paths
 
-specialName = ".caligo" -- Change to .store (need to move vault first)
+specialName = ".apo" -- Change to .store (need to move vault first)
 manifestName = "MANIFEST"
 distName = "DISTRIBUTED"
 
