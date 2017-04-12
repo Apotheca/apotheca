@@ -1,4 +1,4 @@
-module Caligo.Bytes
+module Apotheca.Bytes
 ( hex, unhex
 , b64, unb64
 , b64url, unb64url

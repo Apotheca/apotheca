@@ -1,4 +1,4 @@
-module Caligo.Process
+module Apotheca.Process
 ( delay
 ) where
 

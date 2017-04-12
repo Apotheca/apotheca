@@ -1,4 +1,4 @@
-module Caligo.Runtime.Options
+module Apotheca.Runtime.Options
 ( RuntimeOptions (..)
 , getOptions
 , runOptions
@@ -7,17 +7,17 @@ module Caligo.Runtime.Options
 
 import           Options.Applicative
 
-import           Caligo.Logs
-import           Caligo.Repo.Path
-import           Caligo.Repo.Repo
-import           Caligo.Repo.Types
+import           Apotheca.Logs
+import           Apotheca.Repo.Path
+import           Apotheca.Repo.Repo
+import           Apotheca.Repo.Types
 
-import           Caligo.Runtime.Commands
+import           Apotheca.Runtime.Commands
 
 
 
 getOptions :: IO RuntimeOptions
-getOptions = execParser $ parseOptions `withInfo` "Manage Caligo storage."
+getOptions = execParser $ parseOptions `withInfo` "Manage Apotheca storage."
 
 runOptions :: (RuntimeOptions -> IO ()) -> IO ()
 runOptions r = getOptions >>= r
@@ -26,7 +26,7 @@ withInfo :: Parser a -> String -> ParserInfo a
 withInfo opts desc = info (helper <*> opts)
   $ fullDesc
   <> progDesc desc
-  <> header "Caligo DHT - distributed data storage"
+  <> header "Apotheca DHT - distributed data storage"
   <> footer "Goodbye."
 
 data RuntimeOptions = Options {
@@ -53,7 +53,7 @@ parseRepoDir = optional $ strOption
   <> long "store-dir"
   <> metavar "STOREDIR"
   -- <> value "."
-  <> help "Caligo store directory - the location of the store repository. This \
+  <> help "Apotheca store directory - the location of the store repository. This \
     \allows you to target a repo other than in the current directory / ancestry\
     \ If specified, it must be an exact path. If not specified, a recursive \
     \search upwards from the current working directory will be performed."
@@ -111,7 +111,7 @@ parseCommand = subparser
   -- Sync
   <> subcmd "push" "Pushes a path into a store." parsePush
   <> subcmd "pull" "Pulls a path from a store." parsePull
-  <> subcmd "transfer" "Transfers a path between stores." parseTransfer
+  -- <> subcmd "transfer" "Transfers a path between stores." parseTransfer
   -- Watch
   <> subcmd "watch" "Adds a directory to the watchlist." parseWatch
   <> subcmd "unwatch" "Removes a directory from the watchlist." parseUnwatch
@@ -176,12 +176,18 @@ parseDel = Del
 
 parsePush = Push
   <$> parseWatchMode
+  <*> parseGlob
+  <*> parseExtPath
+  <*> parseIntPath
 
 parsePull = Pull
   <$> parseWatchMode
+  <*> parseGlob
+  <*> parseExtPath
+  <*> parseIntPath
 
-parseTransfer = Transfer
-  <$> parseWatchMode
+-- parseTransfer = Transfer
+--   <$> parseWatchMode
 
 
 
@@ -262,7 +268,7 @@ parseTree s = switch $
   )
 
 parseWatchMode :: Parser WatchMode
-parseWatchMode = flag' DeadDropMode (long "deaddrop" <> help "Run with only fatal print output.")
-  <|> flag' (AdditiveMode True) (long "addover" <> help "Additive mode, with overwrite.")
-  <|> flag' (AdditiveMode False) (long "additive" <> help "Additive mode, no overwrite.")
+parseWatchMode = flag' DeadDropMode (long "deaddrop" <> help "Deletes source after transaction.")
+  -- <|> flag' (AdditiveMode True) (long "addover" <> help "Additive mode, with overwrite.")
+  <|> flag' AdditiveMode (long "additive" <> help "Additive mode, no overwrite.")
   <|> flag SynchronizeMode SynchronizeMode (long "synchronize" <> help "Synchronize mode")

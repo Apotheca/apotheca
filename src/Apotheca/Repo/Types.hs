@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE FlexibleInstances #-}
 
-module Caligo.Repo.Types where
+module Apotheca.Repo.Types where
 
 import           GHC.Generics
 
@@ -10,9 +10,9 @@ import qualified Data.Map.Strict      as M
 
 import qualified System.FilePath.Glob as G
 
-import           Caligo.Encodable
-import           Caligo.Logs          (Verbosity)
-import           Caligo.Misc
+import           Apotheca.Encodable
+import           Apotheca.Logs          (Verbosity)
+import           Apotheca.Misc
 
 
 

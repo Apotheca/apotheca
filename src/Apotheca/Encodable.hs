@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE FlexibleInstances #-}
 
-module Caligo.Encodable
+module Apotheca.Encodable
 ( -- Re-exports
   S.Serialize (..)
 , A.ToJSON (..), A.FromJSON (..)
@@ -42,7 +42,7 @@ import qualified Data.Yaml.Pretty         as Yp
 
 import           Text.Read                (readMaybe)
 
-import           Caligo.Bytes
+import           Apotheca.Bytes
 
 
 

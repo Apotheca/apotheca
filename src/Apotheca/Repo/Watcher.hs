@@ -1,4 +1,4 @@
-module Caligo.Repo.Watcher
+module Apotheca.Repo.Watcher
 ( WatchStrategy (..)
 , WatchMode (..)
 , defaultWatcher
@@ -15,9 +15,9 @@ import           Control.Monad      (forever)
 
 import           System.FSNotify
 
-import           Caligo.Encodable
-import           Caligo.Repo.Path
-import           Caligo.Repo.Types  (WatchDirection (..), WatchMode (..),
+import           Apotheca.Encodable
+import           Apotheca.Repo.Path
+import           Apotheca.Repo.Types  (WatchDirection (..), WatchMode (..),
                                      WatchStrategy (..))
 
 

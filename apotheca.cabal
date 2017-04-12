@@ -1,9 +1,9 @@
-name:                caligo
+name:                apotheca
 version:             0.1.0.0
-synopsis:            Caligo DHT - distributed data storage
+synopsis:            Apotheca DHT - distributed data storage
 description:         Please see README.md
-homepage:            https://github.com/githubuser/caligo#readme
-license:             BSD3
+homepage:            https://github.com/Apotheca/apotheca#readme
+license:             AllRightsReserved
 license-file:        LICENSE
 author:              Author name here
 maintainer:          example@example.com
@@ -16,26 +16,26 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:
-      Caligo.Bytes
-    , Caligo.Encodable
-    , Caligo.Logs
-    , Caligo.Misc
-    -- , Caligo.Distributed
-    , Caligo.Distributed.Keyspace
-    -- , Caligo.Integrations
-    -- , Caligo.Integrations.Fuse
-    -- , Caligo.Security
-    , Caligo.Security.Hash
-    , Caligo.Security.Cipher
-    -- , Caligo.Repo
-    , Caligo.Repo.Blocks
-    , Caligo.Repo.Config
-    , Caligo.Repo.Ignore
-    , Caligo.Repo.Manifest
-    , Caligo.Repo.Path
-    , Caligo.Repo.Repo
-    , Caligo.Repo.Types
-    , Caligo.Repo.Watcher
+      Apotheca.Bytes
+    , Apotheca.Encodable
+    , Apotheca.Logs
+    , Apotheca.Misc
+    -- , Apotheca.Distributed
+    , Apotheca.Distributed.Keyspace
+    -- , Apotheca.Integrations
+    -- , Apotheca.Integrations.Fuse
+    -- , Apotheca.Security
+    , Apotheca.Security.Hash
+    , Apotheca.Security.Cipher
+    -- , Apotheca.Repo
+    , Apotheca.Repo.Blocks
+    , Apotheca.Repo.Config
+    , Apotheca.Repo.Ignore
+    , Apotheca.Repo.Manifest
+    , Apotheca.Repo.Path
+    , Apotheca.Repo.Repo
+    , Apotheca.Repo.Types
+    , Apotheca.Repo.Watcher
   -- other-modules:
   build-depends:
     -- Base
@@ -83,21 +83,21 @@ library
     , fsnotify
   default-language:    Haskell2010
 
-executable caligo
+executable apo
   hs-source-dirs:      exe
   main-is:             Main.hs
   other-modules:
-      Caligo.Runtime
-    , Caligo.Runtime.Commands
-    , Caligo.Runtime.Options
+      Apotheca.Runtime
+    , Apotheca.Runtime.Commands
+    , Apotheca.Runtime.Options
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   -- TODO: Add optimizations: -O2 -dynamic
   build-depends:
       base
+    , apotheca
     , base16-bytestring
     , base64-bytestring
     , bytestring
-    , caligo
     , containers
     , directory
     , filepath

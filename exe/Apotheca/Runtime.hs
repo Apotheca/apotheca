@@ -1,4 +1,4 @@
-module Caligo.Runtime
+module Apotheca.Runtime
 ( execRuntime
 ) where
 
@@ -11,13 +11,13 @@ import           System.Environment
 import           System.FilePath
 import           System.IO
 
--- import           Caligo.Encodable
-import           Caligo.Logs
-import           Caligo.Repo.Path
-import           Caligo.Repo.Repo
+-- import           Apotheca.Encodable
+import           Apotheca.Logs
+import           Apotheca.Repo.Path
+import           Apotheca.Repo.Repo
 
-import           Caligo.Runtime.Commands
-import           Caligo.Runtime.Options
+import           Apotheca.Runtime.Commands
+import           Apotheca.Runtime.Options
 
 
 -- TODO: CAL-DIR shell environment variable to point to default repo if one

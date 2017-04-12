@@ -1,4 +1,4 @@
-module Caligo.Repo.Ignore
+module Apotheca.Repo.Ignore
 ( Ignore (..)
 , ignore
 , ignoreName
@@ -12,8 +12,8 @@ import           Data.Maybe
 
 import qualified System.FilePath.Glob  as G
 
-import           Caligo.Misc
-import           Caligo.Repo.Types     (Ignore (..))
+import           Apotheca.Misc
+import           Apotheca.Repo.Types     (Ignore (..))
 
 -- TODO: More complex globbing
 

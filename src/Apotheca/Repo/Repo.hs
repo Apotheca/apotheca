@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Caligo.Repo.Repo
+module Apotheca.Repo.Repo
 ( Env (..)
 , defaultEnv
 , Repo (..)
@@ -49,49 +49,50 @@ module Caligo.Repo.Repo
 , multiplex, multiplex'
 ) where
 
-import           Prelude                     hiding (readFile, writeFile)
+import           Prelude                       hiding (readFile, writeFile)
 
 import           GHC.Generics
 
-import           Control.Monad               (filterM, foldM, mapM, mapM_,
-                                              unless, when)
+import           Control.Monad                 (filterM, foldM, mapM, mapM_,
+                                                unless, when)
 
 import           Data.Bits
 import           Data.Bits.ByteString
-import           Data.ByteString             (ByteString)
-import qualified Data.ByteString             as B
-import qualified Data.ByteString.Char8       as BC
-import qualified Data.List                   as L
-import qualified Data.Map.Strict             as M
-import           Data.Maybe                  (fromJust, isJust, maybe)
+import           Data.ByteString               (ByteString)
+import qualified Data.ByteString               as B
+import qualified Data.ByteString.Char8         as BC
+import qualified Data.List                     as L
+import qualified Data.Map.Strict               as M
+import           Data.Maybe                    (fromJust, isJust, maybe)
 
-import           System.Directory            (createDirectoryIfMissing,
-                                              doesDirectoryExist, doesFileExist,
-                                              getDirectoryContents,
-                                              makeAbsolute,
-                                              removeDirectoryRecursive)
-import           System.FilePath             (dropTrailingPathSeparator,
-                                              hasTrailingPathSeparator,
-                                              joinPath, normalise, splitPath,
-                                              takeDirectory, takeExtension,
-                                              takeFileName, (</>))
-import qualified System.FilePath.Glob        as G
+import           System.Directory              (createDirectoryIfMissing,
+                                                doesDirectoryExist,
+                                                doesFileExist,
+                                                getDirectoryContents,
+                                                makeAbsolute,
+                                                removeDirectoryRecursive)
+import           System.FilePath               (dropTrailingPathSeparator,
+                                                hasTrailingPathSeparator,
+                                                joinPath, normalise, splitPath,
+                                                takeDirectory, takeExtension,
+                                                takeFileName, (</>))
+import qualified System.FilePath.Glob          as G
 
-import           Caligo.Bytes
-import           Caligo.Distributed.Keyspace
-import           Caligo.Encodable
-import           Caligo.Logs
-import           Caligo.Misc
-import           Caligo.Repo.Blocks
-import           Caligo.Repo.Config
-import           Caligo.Repo.Ignore
-import           Caligo.Repo.Manifest        (Manifest, emptyManifest,
-                                              readManifestFile,
-                                              writeManifestFile)
-import qualified Caligo.Repo.Manifest        as Mf
-import           Caligo.Repo.Path
-import           Caligo.Repo.Types
-import           Caligo.Security.Hash
+import           Apotheca.Bytes
+import           Apotheca.Distributed.Keyspace
+import           Apotheca.Encodable
+import           Apotheca.Logs
+import           Apotheca.Misc
+import           Apotheca.Repo.Blocks
+import           Apotheca.Repo.Config
+import           Apotheca.Repo.Ignore
+import           Apotheca.Repo.Manifest        (Manifest, emptyManifest,
+                                                readManifestFile,
+                                                writeManifestFile)
+import qualified Apotheca.Repo.Manifest        as Mf
+import           Apotheca.Repo.Path
+import           Apotheca.Repo.Types
+import           Apotheca.Security.Hash
 
 
 
@@ -570,21 +571,21 @@ delPath force dst r = case (isf, isd) of
 pushPath :: WatchMode -> FilePath -> Path -> Repo -> IO Repo
 pushPath wm = case wm of
   SynchronizeMode -> pushSync
-  AdditiveMode ow -> pushAdditive ow
+  AdditiveMode -> pushAdditive
   DeadDropMode -> pushDeadDrop
 
 pushSync src dst r = undefined
-pushAdditive ow src dst r = undefined
+pushAdditive src dst r = undefined
 pushDeadDrop src dst r = undefined
 
 pullPath :: WatchMode -> Path -> FilePath -> Repo -> IO Repo
 pullPath wm = case wm of
   SynchronizeMode -> pullSync
-  AdditiveMode ow -> pullAdditive ow
+  AdditiveMode -> pullAdditive
   DeadDropMode -> pullDeadDrop
 
 pullSync src dst r = undefined
-pullAdditive ow src dst r = undefined
+pullAdditive src dst r = undefined
 pullDeadDrop src dst r = undefined
 
 

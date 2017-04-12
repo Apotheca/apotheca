@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveGeneric #-}
 
-module Caligo.Security.Cipher
+module Apotheca.Security.Cipher
 ( Cipher (..)
 , cipherNonceSize
 , cipherKeySize

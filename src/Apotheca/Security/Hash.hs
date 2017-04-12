@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveGeneric #-}
 
-module Caligo.Security.Hash
+module Apotheca.Security.Hash
 ( Hash (..)
 , Salt (..)
 , Digest (..)

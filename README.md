@@ -1,4 +1,4 @@
-# Caligo DHT
+# Apotheca DHT
 
 A simple, encrypted, distributed data store.
 
@@ -25,14 +25,14 @@ All caligo commands may be listed by simply calling caligo
 
 ```sh
 $ caligo
-Caligo DHT - distributed data storage
+Apotheca DHT - distributed data storage
 
 Usage: caligo [-s|--store STORE] [COMMAND]
-  Manage Caligo storage.
+  Manage Apotheca storage.
 
 Available options:
   -h,--help                Show this help text
-  -s,--store STORE         Caligo store directory
+  -s,--store STORE         Apotheca store directory
 
 Available commands:
   new                      Initialize a store.
@@ -48,7 +48,7 @@ Individual command help may be displayed using `-h` or `--help` flags
 
 ```sh
 $ caligo put --help
-Caligo DHT - distributed data storage
+Apotheca DHT - distributed data storage
 
 Usage: caligo put KEY SRC-FILE
   Put a file into storage.
@@ -63,7 +63,7 @@ In prototyping stage
 
 ## Copyright and references
 
-Copyright (c) 2016 Caligo.xyz | Readme constructed via [StackEdit][mdeditor]
+Copyright (c) 2016 Apotheca.xyz | Readme constructed via [StackEdit][mdeditor]
 
 [//]: # (Markdown help - https://help.github.com/articles/basic-writing-and-formatting-syntax/)
 

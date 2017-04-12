@@ -1,8 +1,8 @@
-module Caligo.Chord where
+module Apotheca.Chord where
 
 import qualified Data.Map.Strict             as M
 
-import           Caligo.Distributed.Keyspace
+import           Apotheca.Distributed.Keyspace
 
 data ChordState a = CState
   { self        :: Key

@@ -1,5 +1,5 @@
-module Caligo.Integrations.Fuse
-( mountCaligo
+module Apotheca.Integrations.Fuse
+( mountApotheca
 ) where
 
 import           Control.Monad         (forM)
@@ -18,4 +18,4 @@ import           System.Fuse
 
 
 
-mountCaligo = undefined
+mountApotheca = undefined

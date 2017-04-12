@@ -1,4 +1,4 @@
-module Caligo.Misc where
+module Apotheca.Misc where
 
 tagWith :: (a -> b) -> a -> (b, a)
 tagWith f a = (f a, a)

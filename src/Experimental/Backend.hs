@@ -1,4 +1,4 @@
-module Caligo.Backend
+module Apotheca.Backend
 ( BackendConfig (..)
 , localhost
 , bootProcess

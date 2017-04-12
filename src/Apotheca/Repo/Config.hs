@@ -1,4 +1,4 @@
-module Caligo.Repo.Config
+module Apotheca.Repo.Config
 ( Config (..)
 , configName
 , defaultConfig
@@ -15,15 +15,15 @@ import qualified Data.Yaml              as Y
 
 import           System.Directory       (makeAbsolute)
 
-import           Caligo.Bytes
-import           Caligo.Encodable
-import           Caligo.Repo.Path       (Path)
-import           Caligo.Repo.Watcher
-import           Caligo.Security.Cipher (CipherStrategy)
-import           Caligo.Security.Hash   (HashStrategy)
+import           Apotheca.Bytes
+import           Apotheca.Encodable
+import           Apotheca.Repo.Path       (Path)
+import           Apotheca.Repo.Watcher
+import           Apotheca.Security.Cipher (CipherStrategy)
+import           Apotheca.Security.Hash   (HashStrategy)
 
-import           Caligo.Logs
-import           Caligo.Repo.Types      (Config (..))
+import           Apotheca.Logs
+import           Apotheca.Repo.Types      (Config (..))
 
 
 

@@ -1,6 +1,6 @@
 module Main where
 
-import           Caligo.Runtime
+import           Apotheca.Runtime
 
 main :: IO ()
 main = execRuntime >> putStrLn "Done."

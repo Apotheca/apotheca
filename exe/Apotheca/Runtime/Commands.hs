@@ -1,4 +1,4 @@
-module Caligo.Runtime.Commands
+module Apotheca.Runtime.Commands
 ( RuntimeCommand (..)
 , runCommand
 , multiplex
@@ -16,12 +16,12 @@ import           System.Environment
 import           System.FilePath
 import           System.IO
 
-import           Caligo.Encodable
-import           Caligo.Logs
-import           Caligo.Repo.Config
-import           Caligo.Repo.Path
-import           Caligo.Repo.Repo
-import           Caligo.Repo.Types
+import           Apotheca.Encodable
+import           Apotheca.Logs
+import           Apotheca.Repo.Config
+import           Apotheca.Repo.Path
+import           Apotheca.Repo.Repo
+import           Apotheca.Repo.Types
 
 
 
@@ -67,7 +67,7 @@ data RuntimeCommand
   -- Sync
   | Push WatchMode (Maybe Glob) FilePath FilePath
   | Pull WatchMode (Maybe Glob) FilePath FilePath
-  | Transfer WatchMode
+  -- | Transfer WatchMode
   -- Watch
   | Watch
   | Unwatch
@@ -106,7 +106,7 @@ runCommand cmd e = do
     --  if relative, makes relative to int-dir / ext-dir
     --  does not multiplex
     --  loses trailing slashes for intpath because Path is just a stub type
-    -- TODO: This should be part of Caligo.Repo.IO or something, and used in Caligo.Repo.Repo
+    -- TODO: This should be part of Apotheca.Repo.IO or something, and used in Apotheca.Repo.Repo
     convertInt p = toFilePath (intDir e) </> p
     convertExt p = extDir e </> p
 

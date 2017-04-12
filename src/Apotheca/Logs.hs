@@ -1,4 +1,4 @@
-module Caligo.Logs
+module Apotheca.Logs
 ( msg
 , logv
 , debug

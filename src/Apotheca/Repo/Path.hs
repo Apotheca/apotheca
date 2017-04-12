@@ -1,4 +1,4 @@
-module Caligo.Repo.Path
+module Apotheca.Repo.Path
 ( Path (..)
 , PathElement (..)
 , toFilePath
@@ -7,7 +7,7 @@ module Caligo.Repo.Path
 , parent
 ) where
 
-import           Caligo.Repo.Types
+import           Apotheca.Repo.Types
 import           System.FilePath
 
 

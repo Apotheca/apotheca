@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Caligo.Distributed.Keyspace
+module Apotheca.Distributed.Keyspace
 ( Keyspace
 , newKeyspace
 , keyspaceSzBits
@@ -45,7 +45,7 @@ import           Data.Word              (Word8)
 
 import           Data.Serialize
 
-import           Caligo.Security.Hash
+import           Apotheca.Security.Hash
 
 
 -- Data declarations

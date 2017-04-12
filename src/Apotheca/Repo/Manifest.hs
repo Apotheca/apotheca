@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Caligo.Repo.Manifest
+module Apotheca.Repo.Manifest
 ( Manifest
 , emptyManifest
 , readManifestFile
@@ -56,12 +56,12 @@ import qualified System.FilePath.Glob  as G
 
 import qualified Crypto.Random         as R
 
-import           Caligo.Bytes
-import           Caligo.Encodable
-import           Caligo.Misc
-import           Caligo.Repo.Path
-import           Caligo.Repo.Types
-import           Caligo.Security.Hash  (sha2, unsalted)
+import           Apotheca.Bytes
+import           Apotheca.Encodable
+import           Apotheca.Misc
+import           Apotheca.Repo.Path
+import           Apotheca.Repo.Types
+import           Apotheca.Security.Hash  (sha2, unsalted)
 import           Data.Aeson            (Value (..), object, withArray, (.:),
                                         (.=))
 

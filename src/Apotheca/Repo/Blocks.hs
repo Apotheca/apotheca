@@ -1,4 +1,4 @@
-module Caligo.Repo.Blocks where
+module Apotheca.Repo.Blocks where
 
 import           Control.Monad     (when)
 
@@ -9,8 +9,8 @@ import qualified Data.List         as L
 import           System.Directory  (doesFileExist, removeFile)
 import           System.FilePath   ((</>))
 
-import           Caligo.Bytes
-import           Caligo.Repo.Types (Block (..), BlockId (..), BlockType (..),
+import           Apotheca.Bytes
+import           Apotheca.Repo.Types (Block (..), BlockId (..), BlockType (..),
                                     SplitStrategy (..))
 
 
