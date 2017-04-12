@@ -2,6 +2,7 @@ module Caligo.Repo.Watcher
 ( WatchStrategy (..)
 , WatchMode (..)
 , defaultWatcher
+, watcher
 , runWatcher
 ) where
 
@@ -16,18 +17,35 @@ import           System.FSNotify
 
 import           Caligo.Encodable
 import           Caligo.Repo.Path
-import           Caligo.Repo.Types  (WatchMode (..), WatchStrategy (..))
+import           Caligo.Repo.Types  (WatchDirection (..), WatchMode (..),
+                                     WatchStrategy (..))
 
 
 
 defaultWatcher = WatchStrategy
-  { sourcePath = "."
-  , targetPath = []
-  , watchMode = SynchronizeMode
+  { watchMode = SynchronizeMode
+  , watchDirection = WatchPush
+  , globFilter = Nothing
+  , sourcePath = "/"
+  , destPath = "."
   , pollInterval = 5000000
   , forcePolling = False
-  , globFilter = Nothing
   }
+
+type UntargetedWatcher = (FilePath -> FilePath -> WatchStrategy)
+
+-- watcher AdditiveMode +>
+
+watcher :: WatchMode -> WatchDirection -> Maybe [String] -> UntargetedWatcher
+watcher m d mg src dst = defaultWatcher
+  { watchMode = m
+  , watchDirection = d
+  , globFilter = mg
+  , sourcePath = src
+  , destPath = dst
+  }
+
+
 
 -- NOTE: For now, if a path is reused in additive / dead-drop mode, it is just
 --  overwritten. In the future we may want to do stuff such as optionally rename

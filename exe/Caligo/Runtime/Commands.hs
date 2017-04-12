@@ -65,8 +65,8 @@ data RuntimeCommand
   -- Force, dst
   | Del Bool FilePath
   -- Sync
-  | Push WatchMode
-  | Pull WatchMode
+  | Push WatchMode (Maybe Glob) FilePath FilePath
+  | Pull WatchMode (Maybe Glob) FilePath FilePath
   | Transfer WatchMode
   -- Watch
   | Watch

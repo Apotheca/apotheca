@@ -131,20 +131,31 @@ type Glob = String
 
 -- WatchStrategy
 
+-- NOTE: Watched directories are assumed to be push, and not pull
 data WatchStrategy = WatchStrategy
-  { sourcePath   :: FilePath
-  , targetPath   :: Path
-  , watchMode    :: WatchMode
-  , pollInterval :: Int -- Microseconds
-  , forcePolling :: Bool
-  , globFilter   :: Maybe [String]
-  -- , watchIgnore  :: Maybe Ignore
+  { watchMode      :: WatchMode
+  , watchDirection :: WatchDirection
+  , globFilter     :: Maybe [String]
+  , sourcePath     :: FilePath
+  , destPath       :: FilePath
+  , pollInterval   :: Int -- Microseconds
+  , forcePolling   :: Bool
   } deriving (Show, Read, Generic)
 
 instance Serialize WatchStrategy
 instance ToJSON WatchStrategy
 instance FromJSON WatchStrategy
 instance Encodable WatchStrategy
+
+data WatchDirection
+  = WatchPush
+  | WatchPull
+  deriving (Show, Read, Generic)
+
+instance Serialize WatchDirection
+instance ToJSON WatchDirection
+instance FromJSON WatchDirection
+instance Encodable WatchDirection
 
 -- TODO: Rename ConsumeMode? - since this is used in the command-line as well
 -- TODO: Do we need a 'ProduceMode' for 'pulling'?
@@ -158,7 +169,7 @@ instance Encodable WatchStrategy
 --  doesn't for rsync
 data WatchMode
   = SynchronizeMode -- Adds and deletes files to synchronize files
-  | AdditiveMode Bool  -- Adds / overwrites files, does not delete -- AdditiveMode BoolOverwrite
+  | AdditiveMode
   | DeadDropMode -- Like additive mode, but deletes src file afterwards
   deriving (Show, Read, Eq, Generic)
 
