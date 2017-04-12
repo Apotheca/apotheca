@@ -51,37 +51,40 @@ parseRepoDir :: Parser (Maybe FilePath)
 parseRepoDir = optional $ strOption
   ( short 's'
   <> long "store-dir"
-  <> metavar "STOREDIR"
+  <> metavar "STORE-DIR"
   -- <> value "."
-  <> help "Apotheca store directory - the location of the store repository. This \
-    \allows you to target a repo other than in the current directory / ancestry\
-    \ If specified, it must be an exact path. If not specified, a recursive \
-    \search upwards from the current working directory will be performed."
+  <> help "Apotheca store directory."
+  -- <> help "Apotheca store directory - the location of the store repository. This \
+  --   \allows you to target a repo other than in the current directory / ancestry\
+  --   \ If specified, it must be an exact path. If not specified, a recursive \
+  --   \search upwards from the current working directory will be performed."
   )
 
 parseExtDir :: Parser (Maybe FilePath)
 parseExtDir = optional $ strOption
   ( short 'e'
   <> long "ext-dir"
-  <> metavar "EXTDIR"
+  <> metavar "EXT-DIR"
   -- <> value "."
-  <> help "External working directory - source and destination for \
-    \transactions. Files will be pushed-from and pulled-to relative to this \
-    \directory. This allows you to specify paths relative to another directory. \
-    \If not specified, will use the current directory."
+  <> help "External working directory."
+  -- <> help "External working directory - source and destination for \
+  --   \transactions. Files will be pushed-from and pulled-to relative to this \
+  --   \directory. This allows you to specify paths relative to another directory. \
+  --   \If not specified, will use the current directory."
   )
 
 parseIntDir :: Parser (Maybe Path)
 parseIntDir = optional $ (fromFilePath <$> strOption
   ( short 'i'
   <> long "int-dir"
-  <> metavar "INTDIR"
+  <> metavar "INT-DIR"
   -- <> value "/"
-  <> help "Internal working path - source and destination for \
-    \transactions. Files will be pushed-to and pulled-from relative to this \
-    \directory. If not specified: For a bare repo, defaults to root. For a hidden repo, defaults \
-    \to the current directory relative to the store directory, or root if the \
-    \current directory is not beneath the store directory."
+  <> help "Internal working directory."
+  -- <> help "Internal working directory - source and destination for \
+  --   \transactions. Files will be pushed-to and pulled-from relative to this \
+  --   \directory. If not specified: For a bare repo, defaults to root. For a hidden repo, defaults \
+  --   \to the current directory relative to the store directory, or root if the \
+  --   \current directory is not beneath the store directory."
   ))
 
 parseMagicSlash :: Parser Bool
