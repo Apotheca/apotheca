@@ -3,7 +3,7 @@
 A simple, encrypted, (soon-to-be) distributed data store.
 
 ### Please note:
-This is a work-in-progress, and capabilities are still limited to local, non-distributed repositories. Nor is ready for use in real cryptographic scenarios. Cryptography is currently disabled for debugging purposes, but will be re-enabled in an impending update. 
+This is a work-in-progress, and capabilities are still limited to local, non-distributed repositories. Nor is ready for use in real cryptographic scenarios. Cryptography is currently disabled for debugging purposes, but will be re-enabled in an impending update.
 
 ## Installation
 
@@ -88,7 +88,7 @@ In prototyping stage
 
 ## Copyright and references
 
-Copyright (c) 2016 apotheca.io
+Copyright (c) 2017 apotheca.io
 
 [//]: # (Markdown help - https://help.github.com/articles/basic-writing-and-formatting-syntax/)
 
