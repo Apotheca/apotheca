@@ -1,6 +1,9 @@
 # Apotheca DHT
 
-A simple, encrypted, distributed data store.
+A simple, encrypted, (soon-to-be) distributed data store.
+
+### Please note:
+This is a work-in-progress, and capabilities are still limited to local, non-distributed repositories. Nor is ready for use in real cryptographic scenarios. Cryptography is currently disabled for debugging purposes, but will be re-enabled in an impending update. 
 
 ## Installation
 
