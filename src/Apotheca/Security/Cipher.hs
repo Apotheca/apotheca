@@ -26,6 +26,8 @@ import           Crypto.Error
 import qualified Crypto.Hash.Algorithms as H
 import qualified Crypto.KDF.PBKDF2      as KDF
 
+import           Apotheca.Encodable
+
 -- https://en.wikipedia.org/wiki/Cipher_suite
 
 data Cipher
@@ -34,6 +36,11 @@ data Cipher
   | ChaCha256
   | Salsa256
   deriving (Show, Read, Eq, Generic)
+
+instance Serialize Cipher
+instance ToJSON Cipher
+instance FromJSON Cipher
+instance Encodable Cipher
 
 cipherNonceSize :: Cipher -> Int
 cipherNonceSize AES256 = 16
@@ -77,6 +84,11 @@ data CipherStrategy = CipherStrategy
   , deriveValidKey :: Bool
   }
   deriving (Show, Read, Eq, Generic)
+
+instance Serialize CipherStrategy
+instance ToJSON CipherStrategy
+instance FromJSON CipherStrategy
+instance Encodable CipherStrategy
 
 defaultCipherStrategy = CipherStrategy
   { algorithm = AES256

@@ -27,12 +27,14 @@ module Apotheca.Security.Hash
 import           GHC.Generics
 
 import           Data.Bits
-import           Data.ByteArray  (convert)
-import           Data.ByteString (ByteString)
-import qualified Data.ByteString as B
+import           Data.ByteArray     (convert)
+import           Data.ByteString    (ByteString)
+import qualified Data.ByteString    as B
 import           Data.Serialize
 
-import qualified Crypto.Hash     as H
+import qualified Crypto.Hash        as H
+
+import           Apotheca.Encodable
 
 
 
@@ -59,6 +61,11 @@ data Hash
   -- | CatHash Hash Hash
   -- | XorHash Hash Hash
   deriving (Show, Read, Eq, Generic)
+
+instance Serialize Hash
+instance ToJSON Hash
+instance FromJSON Hash
+instance Encodable Hash
 
 type Salt = ByteString
 type Digest = ByteString
@@ -114,15 +121,20 @@ ghash' h = ghash h B.empty
 
 -- NOTE: For real security
 data HashStrategy = HashStrategy
-  { algorithm      :: Hash
-  , salt           :: ByteString
-  , largeFileLimit :: Maybe Int -- Maximum bytes to hash before halting
+  { algorithm :: Hash
+  , salt      :: ByteString
+  , limit     :: Maybe Int -- Maximum bytes to hash before halting
   } deriving (Show, Read, Eq, Generic)
+
+instance Serialize HashStrategy
+instance ToJSON HashStrategy
+instance FromJSON HashStrategy
+instance Encodable HashStrategy
 
 defaultHashStrategy = HashStrategy
   { algorithm = Blake2
   , salt = B.empty
-  , largeFileLimit = Nothing
+  , limit = Nothing
   }
 
 -- NOTE: This (using a limit) is okay for identifying unique file but is not
@@ -130,12 +142,12 @@ defaultHashStrategy = HashStrategy
 weakHashStrategy = defaultHashStrategy
   { algorithm = RIPEMD
   , salt = B.empty
-  , largeFileLimit = Just $ 2^24 -- Only hash the first 16 mb of a file for now
+  , limit = Just $ 2^24 -- Only hash the first 16 mb of a file for now
   }
 
 hashWithStrategy :: HashStrategy -> ByteString -> Digest
 hashWithStrategy hs bs = runHash (algorithm hs) (salt hs) bs'
-  where bs' = maybe bs (`B.take` bs) (largeFileLimit hs)
+  where bs' = maybe bs (`B.take` bs) (limit hs)
 
 -- Shorthand convenience
 hws = hashWithStrategy
