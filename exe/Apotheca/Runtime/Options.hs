@@ -155,14 +155,16 @@ parseList = List
   <*> parseIntPath
 
 parseGet = Get
-  <$> parseOverwrite "Overwrite existing files."
+  <$> parseStdout "Print file to stdout. Ignores -orp, EXT-PATH."
+  <*> parseOverwrite "Overwrite existing files."
   <*> parseReplace "Replace directories instead of merging."
   <*> parseRecurse "Recurse over directory contents."
   <*> parseIntPath -- "Source file or directory in store."
   <*> parseExtPath -- "Dest file or directory in store."
 
 parsePut = Put
-  <$> parseOverwrite "Overwrite existing files."
+  <$> parseStdin "Input file from stdin. Ignores EXT-PATH, implies -o." -- implies /currently/
+  <*> parseOverwrite "Overwrite existing files."
   <*> parseReplace "Replace directories instead of merging."
   <*> parseRecurse "Recurse over directory contents."
   <*> parseExtPath -- "Source file or directory in store."
@@ -239,6 +241,20 @@ parseForce :: String -> Parser Bool
 parseForce s = switch $
   ( short 'f'
   <> long "force"
+  <> help s
+  )
+
+parseStdin :: String -> Parser Bool
+parseStdin s = switch $
+  ( short 'x'
+  <> long "stdin"
+  <> help s
+  )
+
+parseStdout :: String -> Parser Bool
+parseStdout s = switch $
+  ( short 'x'
+  <> long "stdout"
   <> help s
   )
 

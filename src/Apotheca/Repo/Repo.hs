@@ -22,15 +22,22 @@ module Apotheca.Repo.Repo
 , modifyManifest
 , queryManifest
 , mqueryManifest
+-- Data
+, getDatum
+, putDatum
+, delDatum
+-- Handle
+, getHandle
+, putHandle
 -- File
-, putFile
 , getFile
-, delFile
+, putFile
 -- Path
 , listPath
-, putPath
 , getPath
+, putPath
 , delPath
+-- Push / pull
 , pushPath
 , pullPath
 -- , transferPath
@@ -77,6 +84,7 @@ import           System.FilePath               (dropTrailingPathSeparator,
                                                 takeDirectory, takeExtension,
                                                 takeFileName, (</>))
 import qualified System.FilePath.Glob          as G
+import           System.IO                     (Handle, IOMode (..), withFile)
 
 import           Apotheca.Bytes
 import           Apotheca.Distributed.Keyspace
@@ -376,12 +384,25 @@ removeFile = modifyManifest . Mf.removeFile
 -- NOTE: Paths must already be validated or an error may occur
 -- NOTE: getFile/putFile/delFile as in file-in-the-manifest, not file-on-disk
 -- These exist because file actions modify blocks, directory actions do not
+-- TODO: Rename get/put/delFile to *Data
+--  *Datum <- *Handle <- *File <- *Path
 
-putFile :: Path -> ByteString -> Repo -> IO Repo
-putFile p b r = do
+-- NOTE: put / get terminology is slightly confusing, because the point-of-view
+--  is from the repository, not the shell / user / underlying os / filesystem
+
+
+getDatum :: Path -> Repo -> IO ByteString
+getDatum p r = B.concat <$> mapM fetchLocalBlock bids
+  where
+    bids = readFile p r
+    fetchLocalBlock :: BlockId -> IO Block
+    fetchLocalBlock = (fromJust <$>) . fetchBlock (dataPath r) LocalBlock
+
+putDatum :: Path -> ByteString -> Repo -> IO Repo
+putDatum p b r = do
     -- Remove previous version if exists
     r' <- if queryManifest (Mf.pathIsFile p) r
-      then delFile p r
+      then delDatum p r
       else return r
     -- Write blocks to disk
     mapM_ storeLocalBlock pairs
@@ -392,15 +413,8 @@ putFile p b r = do
     pairs = assignBlockIds h $ splitBlocks r b
     storeLocalBlock (bid, b) = storeBlock (dataPath r) LocalBlock bid b
 
-getFile :: Path -> Repo -> IO ByteString
-getFile p r = B.concat <$> mapM fetchLocalBlock bids
-  where
-    bids = readFile p r
-    fetchLocalBlock :: BlockId -> IO Block
-    fetchLocalBlock = (fromJust <$>) . fetchBlock (dataPath r) LocalBlock
-
-delFile :: Path -> Repo -> IO Repo
-delFile p r = do
+delDatum :: Path -> Repo -> IO Repo
+delDatum p r = do
     -- Remove blocks
     mapM_ deleteLocalBlock bids
     -- Update manifest, return
@@ -408,6 +422,21 @@ delFile p r = do
   where
     bids = readFile p r
     deleteLocalBlock = deleteBlock (dataPath r) LocalBlock
+
+-- NOTE: This writes the datum to a handle, does not 'get a handle'
+--  Returns the bytestring in case needed elsewhere
+getHandle :: Handle -> Path -> Repo -> IO ()
+getHandle h p r = getDatum p r >>= B.hPut h
+
+-- NOTE:This reads the datum from a handle, does not 'put into handle'
+putHandle :: Handle -> Path -> Repo -> IO Repo
+putHandle h p r = B.hGetContents h >>= flip (putDatum p) r
+
+getFile :: FilePath -> Path -> Repo -> IO ()
+getFile fp p r = withFile fp ReadMode $ \h -> getHandle h p r
+
+putFile :: FilePath -> Path -> Repo -> IO Repo
+putFile fp p r = withFile fp WriteMode $ \h -> putHandle h p r
 
 
 
@@ -417,35 +446,7 @@ delFile p r = do
 --  unlike the get/put/del file functions (get just returns the bytestring)
 
 -- TODO: transactions should go through an intermediary TreeMap representation
---  At some point, we want to make it more flexible and not only src from filesystem
---  For now, we are only considering from filesystem to repo and back
--- TODO: data DataSrc = SrcFile FilePath | SrcBytes ByteString?
--- TODO: data DataDst = DstFile FilePath | DstBytes ByteString?
--- TODO: Path conflict resolution strategy
---  Do we: abort / overwrite files / rename src or dst / merge or replace dirs
---  or command-line ask?
 
--- PParams (path params)
--- data PParams = PParams
---   { pOverwriteFiles :: Bool
---   , pReplaceDirs    :: Bool
---   , pRecurse        :: Bool
---   } deriving (Show, Read)
---
--- defPParams = PParams
---   { pOverwriteFiles = False
---   , pReplaceDirs = False
---   , pRecurse = False
---   }
---
--- gpparams :: Bool -> Bool -> Bool -> PParams
--- gpparams ow rp rc = defPParams
---   { pOverwriteFiles = ow
---   , pReplaceDirs = rp
---   , pRecurse = rc
---   }
-
--- TODO: Refactor, this should probably return a list of things instead...
 listPath :: Bool -> Path -> Repo -> IO [Path]
 listPath rc dst r = if queryManifest (Mf.pathExists dst) r
     then return paths
@@ -455,50 +456,6 @@ listPath rc dst r = if queryManifest (Mf.pathExists dst) r
     paths = if queryManifest (Mf.pathIsFile dst) r
       then [dst]
       else readDir dst r
-
--- putPath - overwrite files, replace dirs, recurse children, src, dst, repo
--- TODO: Actually use replace-dirs flag
-putPath :: Bool -> Bool -> Bool -> FilePath -> Path -> Repo -> IO Repo
-putPath ow rp rc src dst r = do
-    efexists <- doesFileExist src
-    edexists <- doesDirectoryExist src
-    case (efexists, edexists) of
-      (True,_) -> do -- File
-        debug v $ "Reading file " ++ src
-        bs <- B.readFile src
-        when (idexists dst') $
-          error $ "Directory already exists at file target: " ++ toFilePath dst'
-        if ow || not (ifexists dst')
-          then do
-            verbose v $ "Putting: " ++ toFilePath dst'
-            putFile dst' bs r
-          else do
-            error $ "File already exists; use -o to overwrite: " ++ toFilePath dst'
-            return r
-      (_,True) -> do
-        when (ifexists dst') $
-          error $ "File already exists at directory target: " ++ toFilePath dst'
-        r' <- if rp && idexists dst'
-          then do
-            verbose v $ "Replacing:" ++ toFilePath dst'
-            delPath True dst' r
-          else do
-            verbose v $ "Putting: " ++ toFilePath dst'
-            return $ createDirectory dst' r
-        -- The filterM strips child directories if non-recursive
-        getDirectory src >>= filterM filterChild >>= foldM putChild r
-      _ -> error "Put error: Source path does not exist."
-  where
-    v = verbosity $ repoEnv r
-    -- Directory dst
-    dst' = fromFilePath . normalise $ (toFilePath dst) </> takeFileName src
-    ifexists p = queryManifest (Mf.pathIsFile p) r
-    idexists p = queryManifest (Mf.pathIsDirectory p) r
-    putChild r src' = putPath ow rp rc src' dst' r
-    -- Filter files for recursive
-    filterChild p = if rc
-      then return True
-      else doesFileExist p
 
 -- getPath - overwrite, recurse, src, dst, repo
 -- TODO: Fix trailing-slash support
@@ -513,7 +470,7 @@ getPath ow rp rc src dst r = do
         if ow || not efexists
           then do
             verbose v $ "Getting: " ++ toFilePath src
-            bs <- getFile src r
+            bs <- getDatum src r
             debug v $ "Writing file " ++ dst'
             B.writeFile dst' bs
             return r
@@ -543,13 +500,57 @@ getPath ow rp rc src dst r = do
     getChild r src' = getPath ow rp rc src' dst' r
     filterChild p = rc || Mf.pathIsFile p (repoManifest r)
 
+-- putPath - overwrite files, replace dirs, recurse children, src, dst, repo
+-- TODO: Actually use replace-dirs flag
+putPath :: Bool -> Bool -> Bool -> FilePath -> Path -> Repo -> IO Repo
+putPath ow rp rc src dst r = do
+    efexists <- doesFileExist src
+    edexists <- doesDirectoryExist src
+    case (efexists, edexists) of
+      (True,_) -> do -- File
+        debug v $ "Reading file " ++ src
+        bs <- B.readFile src
+        when (idexists dst') $
+          error $ "Directory already exists at file target: " ++ toFilePath dst'
+        if ow || not (ifexists dst')
+          then do
+            verbose v $ "Putting: " ++ toFilePath dst'
+            putDatum dst' bs r
+          else do
+            error $ "File already exists; use -o to overwrite: " ++ toFilePath dst'
+            return r
+      (_,True) -> do
+        when (ifexists dst') $
+          error $ "File already exists at directory target: " ++ toFilePath dst'
+        r' <- if rp && idexists dst'
+          then do
+            verbose v $ "Replacing:" ++ toFilePath dst'
+            delPath True dst' r
+          else do
+            verbose v $ "Putting: " ++ toFilePath dst'
+            return $ createDirectory dst' r
+        -- The filterM strips child directories if non-recursive
+        getDirectory src >>= filterM filterChild >>= foldM putChild r
+      _ -> error "Put error: Source path does not exist."
+  where
+    v = verbosity $ repoEnv r
+    -- Directory dst
+    dst' = fromFilePath . normalise $ (toFilePath dst) </> takeFileName src
+    ifexists p = queryManifest (Mf.pathIsFile p) r
+    idexists p = queryManifest (Mf.pathIsDirectory p) r
+    putChild r src' = putPath ow rp rc src' dst' r
+    -- Filter files for recursive
+    filterChild p = if rc
+      then return True
+      else doesFileExist p
+
 -- delPath - force, dst, repo
 delPath :: Bool -> Path -> Repo -> IO Repo
 delPath _ [] r = error "Cannot delete root!"
 delPath force dst r = case (isf, isd) of
     (True, _) -> do -- File
       verbose v $ "Deleting: " ++ toFilePath dst
-      delFile dst r
+      delDatum dst r
     (_, True) -> do -- Dir
       when (haschild && not force) $ error "Cannot delete non-empty directory. Use -f to force deletion"
       -- Delete existing children if needed
