@@ -19,8 +19,12 @@ import           Apotheca.Repo.Repo
 import           Apotheca.Runtime.Commands
 import           Apotheca.Runtime.Options
 
+-- For version
+import           Data.Version              (showVersion)
+import           Paths_apotheca            (version)
 
--- TODO: CAL-DIR shell environment variable to point to default repo if one
+
+-- TODO: APO-DIR shell environment variable to point to default repo if one
 --  isn't found up-hierarchy or specified in command line.
 
 
@@ -29,10 +33,17 @@ execRuntime = do
   hSetBuffering stdout LineBuffering
   opts <- getOptions
   case optCommand opts of
+    -- No command, default to help
     NoCommand -> do
       -- Show help
       withArgs ["--help"] getOptions
       return ()
+    -- Non-repo commands
+    -- TODO: Include git commit hash in version
+    --  https://haskell-lang.org/library/optparse-applicative
+    --  Under "Package version number and Git commit ID"
+    Version -> putStrLn $ showVersion version
+    -- Env/repo commands
     cmd -> buildEnv opts >>= runCommand cmd
 
 buildEnv :: RuntimeOptions -> IO Env

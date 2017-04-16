@@ -72,6 +72,8 @@ data RuntimeCommand
   | Unwatch
   -- Node
   | RunNode
+  -- Version
+  | Version
   deriving (Show, Read, Eq)
 
 

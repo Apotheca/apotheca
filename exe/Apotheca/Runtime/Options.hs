@@ -121,6 +121,8 @@ parseCommand = subparser
   <> subcmd "unwatch" "Removes a directory from the watchlist." parseUnwatch
   -- Node
   <> subcmd "run" "Run a distributed node." parseRunNode
+  -- Non-repo commands
+  <> subcmd "version" "Print version info." (pure Version)
   ) <|> pure NoCommand
 
 

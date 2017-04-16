@@ -1,5 +1,5 @@
 name:                apotheca
-version:             0.1.0.0
+version:             0.1.0.0-alpha
 synopsis:            Apotheca DHT - distributed data storage
 description:         Please see README.md
 homepage:            https://github.com/Apotheca/apotheca#readme
@@ -90,6 +90,7 @@ executable apo
       Apotheca.Runtime
     , Apotheca.Runtime.Commands
     , Apotheca.Runtime.Options
+    , Paths_apotheca
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   -- TODO: Add optimizations: -O2 -dynamic
   build-depends:
