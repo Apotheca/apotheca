@@ -22,6 +22,8 @@ module Apotheca.Repo.Repo
 , modifyManifest
 , queryManifest
 , mqueryManifest
+-- Map-like
+, WriteMode (..)
 -- Data
 , getDatum
 , putDatum

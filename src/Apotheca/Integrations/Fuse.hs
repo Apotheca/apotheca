@@ -14,8 +14,10 @@ import           System.Environment    (withArgs)
 import           System.FilePath
 import           System.IO
 
-import           System.Fuse
+-- import           System.Fuse
 
 
+
+-- TODO: Pull in FUSE mounting from prototype
 
 mountApotheca = undefined

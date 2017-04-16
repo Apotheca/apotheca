@@ -178,3 +178,13 @@ instance Serialize WatchMode
 instance ToJSON WatchMode
 instance FromJSON WatchMode
 instance Encodable WatchMode
+
+
+
+-- Write mode for put / get
+data WriteMode
+  = Add -- Add if nonexistent, ignore if existent
+  | Overwrite -- Add if nonexistent, overwrite if existent
+  | Update -- Add if nonexistent, overwrite if more recent
+  | Freshen -- Ignore if non-existent, overwrite if more recent
+  deriving (Show, Read, Eq)

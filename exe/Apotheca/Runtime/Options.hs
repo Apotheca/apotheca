@@ -35,6 +35,7 @@ data RuntimeOptions = Options {
   , optIntDir     :: Maybe Path
   , optMagicSlash :: Bool
   , optVerbosity  :: Maybe Verbosity
+  -- Command (always last)
   , optCommand    :: RuntimeCommand
   } deriving (Show, Read, Eq)
 
@@ -291,4 +292,25 @@ parseWatchMode :: Parser WatchMode
 parseWatchMode = flag' DeadDropMode (long "deaddrop" <> help "Deletes source after transaction.")
   -- <|> flag' (AdditiveMode True) (long "addover" <> help "Additive mode, with overwrite.")
   <|> flag' AdditiveMode (long "additive" <> help "Additive mode, no overwrite.")
-  <|> flag SynchronizeMode SynchronizeMode (long "synchronize" <> help "Synchronize mode")
+  <|> flag' SynchronizeMode (long "synchronize" <> help "Synchronize mode")
+  <|> pure SynchronizeMode
+
+parseWriteMode :: Parser WriteMode
+parseWriteMode
+  = flag' Add
+    ( short 'a'
+    <> long "add"
+    <> help "Add if non-existent, ignore if existent. Default.")
+  <|> flag' Overwrite
+    ( short 'o'
+    <> long "overwrite"
+    <> help "Add if non-existent, overwrite if existent.")
+  <|> flag' Update
+    ( short 'u'
+    <> long "update"
+    <> help "Add if nonexistent, overwrite if more recent.")
+  <|> flag' Freshen
+    ( short 'e'
+    <> long "freshen"
+    <> help "Ignore if non-existent, overwrite if more recent.")
+  <|> pure Add
