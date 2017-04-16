@@ -313,7 +313,7 @@ checkRepoData p = do
 -- Helpers
 
 splitStrat :: Repo -> SplitStrategy
-splitStrat r = AdaptiveSz (4096, 1048576) -- From 4kb to 1mb
+splitStrat r = AdaptiveSplit (4096, 1048576) -- From 4kb to 1mb
 
 splitBlocks :: Repo -> ByteString -> [Block]
 splitBlocks = splitWithStrategy . splitStrat

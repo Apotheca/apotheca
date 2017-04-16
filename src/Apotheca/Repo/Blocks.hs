@@ -1,17 +1,17 @@
 module Apotheca.Repo.Blocks where
 
-import           Control.Monad     (when)
+import           Control.Monad       (when)
 
-import           Data.ByteString   (ByteString)
-import qualified Data.ByteString   as B
-import qualified Data.List         as L
+import           Data.ByteString     (ByteString)
+import qualified Data.ByteString     as B
+import qualified Data.List           as L
 
-import           System.Directory  (doesFileExist, removeFile)
-import           System.FilePath   ((</>))
+import           System.Directory    (doesFileExist, removeFile)
+import           System.FilePath     ((</>))
 
 import           Apotheca.Bytes
 import           Apotheca.Repo.Types (Block (..), BlockId (..), BlockType (..),
-                                    SplitStrategy (..))
+                                      SplitStrategy (..))
 
 
 
@@ -55,10 +55,10 @@ splitWithStrategy :: SplitStrategy -> ByteString -> [Block]
 -- Constant block size split - given a number of bytes, splits into chunks of that size
 --  NOTE: Last block is not padded
 -- NOTE: Does not require power-of-two for now
-splitWithStrategy (ExplicitSz i) = chunksOf i
+splitWithStrategy (ExplicitSplit i) = chunksOf i
 -- Takes largest square block possible where mn <= n <= mx
 --  NOTE: Last block is not padded
-splitWithStrategy (AdaptiveSz (mn, mx)) = L.unfoldr $ \b -> if B.null b
+splitWithStrategy (AdaptiveSplit (mn, mx)) = L.unfoldr $ \b -> if B.null b
     then Nothing
     else Just $ B.splitAt (npotf $ B.length b) b
   where
@@ -67,6 +67,7 @@ splitWithStrategy (AdaptiveSz (mn, mx)) = L.unfoldr $ \b -> if B.null b
     -- NOTE: The `min mx` is technically unnecessary because (npotf n <= n)
     -- NOTE: This is technically npotf-between
     npotf = max mn . min mx . (2^) . floor . logBase 2 . fromIntegral
+splitWithStrategy NoSplit = (: [])
 
 -- Shorthand convenience
 sws = splitWithStrategy

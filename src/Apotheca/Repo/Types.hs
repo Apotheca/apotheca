@@ -11,7 +11,7 @@ import qualified Data.Map.Strict      as M
 import qualified System.FilePath.Glob as G
 
 import           Apotheca.Encodable
-import           Apotheca.Logs          (Verbosity)
+import           Apotheca.Logs        (Verbosity)
 import           Apotheca.Misc
 
 
@@ -33,8 +33,9 @@ data BlockType
 -- Split strategy - how a datum is split into blocks
 
 data SplitStrategy
-  = ExplicitSz Int
-  | AdaptiveSz (Int, Int)
+  = ExplicitSplit Int
+  | AdaptiveSplit (Int, Int)
+  | NoSplit
   deriving (Show, Read, Eq)
 
 
