@@ -155,16 +155,16 @@ parseList = List
   <*> parseIntPath
 
 parseGet = Get
-  <$> parseStdout "Print file to stdout. Ignores -orp, EXT-PATH."
-  <*> parseOverwrite "Overwrite existing files."
+  -- <$> parseStdout "Print file to stdout. Ignores -orp, EXT-PATH."
+  <$> parseOverwrite "Overwrite existing files."
   <*> parseReplace "Replace directories instead of merging."
   <*> parseRecurse "Recurse over directory contents."
   <*> parseIntPath -- "Source file or directory in store."
   <*> parseExtPath -- "Dest file or directory in store."
 
 parsePut = Put
-  <$> parseStdin "Input file from stdin. Ignores EXT-PATH, implies -o." -- implies /currently/
-  <*> parseOverwrite "Overwrite existing files."
+  -- <$> parseStdin "Input file from stdin. Ignores EXT-PATH, implies -o." -- implies /currently/
+  <$> parseOverwrite "Overwrite existing files."
   <*> parseReplace "Replace directories instead of merging."
   <*> parseRecurse "Recurse over directory contents."
   <*> parseExtPath -- "Source file or directory in store."
@@ -219,7 +219,8 @@ parseExtPath :: Parser FilePath
 parseExtPath = strArgument
   ( metavar "EXT-PATH"
   -- <> value "."
-  <> help "An external path; if it is a relative path, is relative to EXT-DIR."
+  <> help "An external path; if it is a relative path, is relative to EXT-DIR. \
+    \With files, '-' may be used to specify stdin/stdout as source / destination."
   )
 
 parseIntPath :: Parser FilePath
