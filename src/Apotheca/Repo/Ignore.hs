@@ -13,11 +13,11 @@ import           Data.Maybe
 import qualified System.FilePath.Glob  as G
 
 import           Apotheca.Misc
-import           Apotheca.Repo.Types     (Ignore (..))
+import           Apotheca.Repo.Types   (Ignore (..))
 
 -- TODO: More complex globbing
 
-ignoreName = ".calignore"
+ignoreName = "IGNORE"
 
 ignore :: [String] -> Ignore
 ignore = map (\a -> (a, G.simplify $ G.compile a))
