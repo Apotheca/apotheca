@@ -17,9 +17,15 @@ module Apotheca.Security.Hash
 , runHash
 , HashStrategy (..)
 , defaultHashStrategy
-, weakHashStrategy
-, hashWithStrategy
+, newHashStrategy
+, newHashStrategy'
+, newHashStrategy''
+, hashWith
 , hws
+--
+, HashHeader (..)
+, hashHeaderWith
+, validateHashHeader
 ) where
 
 
@@ -105,7 +111,7 @@ runHash Tiger = tiger
 runHash Whirlpool = whirlpool
 -- runHash _ = error "Error: Unhandled hash type!"
 
--- Generalized cryptonite hash helper
+-- Generalized cryptonite hash helper - easier than ciphers
 ghash :: (H.HashAlgorithm h) => h -> Salt -> ByteString -> Digest
 ghash h s a = convert $ H.hashFinalize a'
   where
@@ -121,9 +127,9 @@ ghash' h = ghash h B.empty
 
 -- NOTE: For real security
 data HashStrategy = HashStrategy
-  { algorithm :: Hash
-  , salt      :: ByteString
-  , limit     :: Maybe Int -- Maximum bytes to hash before halting
+  { halgorithm :: Hash
+  , salt       :: ByteString
+  , hlimit     :: Maybe Int -- Maximum bytes to hash before halting
   } deriving (Show, Read, Eq, Generic)
 
 instance Serialize HashStrategy
@@ -132,22 +138,50 @@ instance FromJSON HashStrategy
 instance Encodable HashStrategy
 
 defaultHashStrategy = HashStrategy
-  { algorithm = Blake2
+  { halgorithm = Blake2
   , salt = B.empty
-  , limit = Nothing
+  , hlimit = Nothing
   }
 
--- NOTE: This (using a limit) is okay for identifying unique file but is not
---  sufficient for checksumming
-weakHashStrategy = defaultHashStrategy
-  { algorithm = RIPEMD
-  , salt = B.empty
-  , limit = Just $ 2^24 -- Only hash the first 16 mb of a file for now
+newHashStrategy :: Hash -> HashStrategy
+newHashStrategy h = newHashStrategy' h B.empty
+
+newHashStrategy' :: Hash -> Salt -> HashStrategy
+newHashStrategy' h s = newHashStrategy'' h s Nothing
+
+newHashStrategy'' :: Hash -> ByteString -> Maybe Int -> HashStrategy
+newHashStrategy'' h s l = defaultHashStrategy
+  { halgorithm = h
+  , salt = s
+  , hlimit = l
   }
 
-hashWithStrategy :: HashStrategy -> ByteString -> Digest
-hashWithStrategy hs bs = runHash (algorithm hs) (salt hs) bs'
-  where bs' = maybe bs (`B.take` bs) (limit hs)
+hashWith :: HashStrategy -> ByteString -> Digest
+hashWith hs bs = runHash (halgorithm hs) (salt hs) bs'
+  where bs' = maybe bs (`B.take` bs) (hlimit hs)
 
 -- Shorthand convenience
-hws = hashWithStrategy
+hws = hashWith
+
+
+
+-- Header
+
+data HashHeader = HashHeader
+  { hashStrategy :: HashStrategy
+  , hashValue    :: Digest
+  } deriving (Show, Read, Eq, Generic)
+
+instance Serialize HashHeader
+instance ToJSON HashHeader
+instance FromJSON HashHeader
+instance Encodable HashHeader
+
+hashHeaderWith :: HashStrategy -> ByteString -> HashHeader
+hashHeaderWith hs bs = HashHeader
+  { hashStrategy = hs
+  , hashValue = hashWith hs bs
+  }
+
+validateHashHeader :: HashHeader -> ByteString -> Bool
+validateHashHeader hh bs = hashWith (hashStrategy hh) bs == hashValue hh

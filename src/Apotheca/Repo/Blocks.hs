@@ -51,14 +51,14 @@ deleteBlock p bt bid = do
 
 -- Splitting strategy
 
-splitWithStrategy :: SplitStrategy -> ByteString -> [Block]
+splitWith :: SplitStrategy -> ByteString -> [Block]
 -- Constant block size split - given a number of bytes, splits into chunks of that size
 --  NOTE: Last block is not padded
 -- NOTE: Does not require power-of-two for now
-splitWithStrategy (ExplicitSplit i) = chunksOf i
+splitWith (ExplicitSplit i) = chunksOf i
 -- Takes largest square block possible where mn <= n <= mx
 --  NOTE: Last block is not padded
-splitWithStrategy (AdaptiveSplit (mn, mx)) = L.unfoldr $ \b -> if B.null b
+splitWith (AdaptiveSplit (mn, mx)) = L.unfoldr $ \b -> if B.null b
     then Nothing
     else Just $ B.splitAt (npotf $ B.length b) b
   where
@@ -67,7 +67,7 @@ splitWithStrategy (AdaptiveSplit (mn, mx)) = L.unfoldr $ \b -> if B.null b
     -- NOTE: The `min mx` is technically unnecessary because (npotf n <= n)
     -- NOTE: This is technically npotf-between
     npotf = max mn . min mx . (2^) . floor . logBase 2 . fromIntegral
-splitWithStrategy NoSplit = (: [])
+splitWith NoSplit = (: [])
 
 -- Shorthand convenience
-sws = splitWithStrategy
+sws = splitWith

@@ -5,14 +5,16 @@ module Apotheca.Repo.Types where
 
 import           GHC.Generics
 
-import           Data.ByteString      (ByteString)
-import qualified Data.Map.Strict      as M
+import           Data.ByteString          (ByteString)
+import qualified Data.Map.Strict          as M
 
-import qualified System.FilePath.Glob as G
+import qualified System.FilePath.Glob     as G
 
 import           Apotheca.Encodable
-import           Apotheca.Logs        (Verbosity)
+import           Apotheca.Logs            (Verbosity)
 import           Apotheca.Misc
+import           Apotheca.Security.Cipher
+import           Apotheca.Security.Hash
 
 
 
@@ -36,19 +38,25 @@ data SplitStrategy
   = ExplicitSplit Int
   | AdaptiveSplit (Int, Int)
   | NoSplit
-  deriving (Show, Read, Eq)
+  deriving (Show, Read, Eq, Generic)
+
+instance Serialize SplitStrategy
+instance ToJSON SplitStrategy
+instance FromJSON SplitStrategy
+instance Encodable SplitStrategy
 
 
 
 data Config = Config
   { selectedManifest :: Maybe String
   , encryptManifest  :: Bool
-  -- , defaultSplit    :: Maybe SplitStrategy
-  -- , defaultHash     :: Maybe HashStrategy
-  -- , defaultCipher   :: Maybe CipherStrategy
+  , defaultSplit     :: SplitStrategy
+  , largeSplit       :: Maybe SplitStrategy
+  , largeSplitLimit  :: Int
+  , blockHash        :: HashStrategy
+  , defaultCipher    :: Maybe CipherStrategy
   -- , defaultExchange :: Maybe ExchangeStrategy
   -- , defaultSigning  :: Maybe SigningStrategy
-  -- , watchedDirs     :: [(FilePath,WatchStrategy)]
   , watchedDirs      :: [WatchStrategy]
   } deriving (Read, Show, Generic)
 

@@ -314,20 +314,30 @@ checkRepoData p = do
 
 -- Helpers
 
-splitStrat :: Repo -> SplitStrategy
-splitStrat r = AdaptiveSplit (4096, 1048576) -- From 4kb to 1mb
+isLarge :: Repo -> ByteString -> Bool
+isLarge r bs = case largeSplit c of
+    Just ss -> B.length bs >= largeSplitLimit c
+    Nothing -> False
+  where
+    c = repoConfig r
+
+-- splitStrat :: Repo -> SplitStrategy
+-- splitStrat r = AdaptiveSplit (4096, 1048576) -- From 4kb to 1mb
 
 splitBlocks :: Repo -> ByteString -> [Block]
-splitBlocks = splitWithStrategy . splitStrat
-
-hashStrat :: Repo -> HashStrategy
-hashStrat r = defaultHashStrategy
+splitBlocks r bs = splitWith strat bs
+  where
+    c = repoConfig r
+    strat = if isLarge r bs
+      then fromJust $ largeSplit c
+      else defaultSplit c
 
 assignBlockId :: HashStrategy -> Block -> (BlockId, Block)
-assignBlockId h b = (hashWithStrategy h b, b)
+assignBlockId h b = (hashWith h b, b)
 
-assignBlockIds :: HashStrategy -> [Block] -> [(BlockId, Block)]
-assignBlockIds h bs = map (assignBlockId h) bs
+assignBlockIds :: Repo -> [Block] -> [(BlockId, Block)]
+assignBlockIds r bs = map (assignBlockId h) bs
+  where h = blockHash $ repoConfig r
 
 
 
@@ -391,7 +401,7 @@ removeFile = modifyManifest . Mf.removeFile
 
 -- NOTE: put / get terminology is slightly confusing, because the point-of-view
 --  is from the repository, not the shell / user / underlying os / filesystem
-
+-- NOTE: only get/putPath fully obey -opr/cmdline flags properly/completely
 
 getDatum :: Path -> Repo -> IO ByteString
 getDatum p r = B.concat <$> mapM fetchLocalBlock bids
@@ -411,8 +421,7 @@ putDatum p b r = do
     -- Update manifest, return
     return $ createFile p (map fst pairs) r
   where
-    h = hashStrat r
-    pairs = assignBlockIds h $ splitBlocks r b
+    pairs = assignBlockIds r $ splitBlocks r b
     storeLocalBlock (bid, b) = storeBlock (dataPath r) LocalBlock bid b
 
 delDatum :: Path -> Repo -> IO Repo

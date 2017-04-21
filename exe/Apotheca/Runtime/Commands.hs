@@ -58,6 +58,7 @@ data RuntimeCommand
   -- | Find -- Something smarter than 'list'
   -- Map-like
   | List Bool Bool FilePath -- Recurse, tree, dst
+  -- TODO: Add --large :: (Maybe Bool) flag to the opr flagset
   -- Overwrite files, replace [instead of merge] directories, recursive
   | Get Bool Bool Bool FilePath FilePath
   | Put Bool Bool Bool FilePath FilePath
