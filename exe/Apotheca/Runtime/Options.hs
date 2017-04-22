@@ -183,19 +183,19 @@ parseDel = Del
 -- Sync strategies
 
 parsePush = Push
-  <$> parseWatchMode
+  <$> parseSyncMode
   <*> parseGlob
   <*> parseExtPath
   <*> parseIntPath
 
 parsePull = Pull
-  <$> parseWatchMode
+  <$> parseSyncMode
   <*> parseGlob
   <*> parseExtPath
   <*> parseIntPath
 
 -- parseTransfer = Transfer
---   <$> parseWatchMode
+--   <$> parseSyncMode
 
 
 
@@ -290,8 +290,8 @@ parseTree s = switch $
   <> help s
   )
 
-parseWatchMode :: Parser WatchMode
-parseWatchMode = flag' DeadDropMode (long "deaddrop" <> help "Deletes source after transaction.")
+parseSyncMode :: Parser SyncMode
+parseSyncMode = flag' DeadDropMode (long "deaddrop" <> help "Deletes source after transaction.")
   -- <|> flag' (AdditiveMode True) (long "addover" <> help "Additive mode, with overwrite.")
   <|> flag' AdditiveMode (long "additive" <> help "Additive mode, no overwrite.")
   <|> flag' SynchronizeMode (long "synchronize" <> help "Synchronize mode")

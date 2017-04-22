@@ -65,9 +65,9 @@ data RuntimeCommand
   -- Force, dst
   | Del Bool FilePath
   -- Sync
-  | Push WatchMode (Maybe Glob) FilePath FilePath
-  | Pull WatchMode (Maybe Glob) FilePath FilePath
-  -- | Transfer WatchMode
+  | Push SyncMode (Maybe Glob) FilePath FilePath
+  | Pull SyncMode (Maybe Glob) FilePath FilePath
+  -- | Transfer SyncMode
   -- Watch
   | Watch
   | Unwatch
@@ -197,9 +197,9 @@ runDel force dst r = multiplex' (delPath force) dst r >>= void . persistRepo
 
 -- Sync
 
-runPush wm r = undefined
-runPull wm r = undefined
-runTransfer wm r = undefined
+runPush sm r = undefined
+runPull sm r = undefined
+runTransfer sm r = undefined
 
 -- Watches
 

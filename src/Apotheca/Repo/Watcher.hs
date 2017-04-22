@@ -1,6 +1,6 @@
 module Apotheca.Repo.Watcher
 ( WatchStrategy (..)
-, WatchMode (..)
+, SyncMode (..)
 , defaultWatcher
 , watcher
 , runWatcher
@@ -10,21 +10,21 @@ module Apotheca.Repo.Watcher
 
 import           GHC.Generics
 
-import           Control.Concurrent (threadDelay)
-import           Control.Monad      (forever)
+import           Control.Concurrent  (threadDelay)
+import           Control.Monad       (forever)
 
 import           System.FSNotify
 
 import           Apotheca.Encodable
 import           Apotheca.Repo.Path
-import           Apotheca.Repo.Types  (WatchDirection (..), WatchMode (..),
-                                     WatchStrategy (..))
+import           Apotheca.Repo.Types (SyncMode (..), Transaction (..),
+                                      WatchStrategy (..))
 
 
 
 defaultWatcher = WatchStrategy
-  { watchMode = SynchronizeMode
-  , watchDirection = WatchPush
+  { syncMode = SynchronizeMode
+  , syncDirection = Push
   , globFilter = Nothing
   , sourcePath = "/"
   , destPath = "."
@@ -36,10 +36,10 @@ type UntargetedWatcher = (FilePath -> FilePath -> WatchStrategy)
 
 -- watcher AdditiveMode +>
 
-watcher :: WatchMode -> WatchDirection -> Maybe [String] -> UntargetedWatcher
+watcher :: SyncMode -> Transaction -> Maybe [String] -> UntargetedWatcher
 watcher m d mg src dst = defaultWatcher
-  { watchMode = m
-  , watchDirection = d
+  { syncMode = m
+  , syncDirection = d
   , globFilter = mg
   , sourcePath = src
   , destPath = dst
@@ -72,29 +72,29 @@ runWatcher w = withManagerConf conf $ \mgr -> do
       , confUsePolling = forcePolling w
       }
 
--- shouldUpdate w e@(Added p utc) = case watchMode w of
+-- shouldUpdate w e@(Added p utc) = case SyncMode w of
 --   SynchronizeMode -> True
 --   AdditiveMode _ -> True
 --   DeadDropMode -> True
--- shouldUpdate w e@(Modified p utc) = case watchMode w of
+-- shouldUpdate w e@(Modified p utc) = case SyncMode w of
 --   SynchronizeMode -> True
 --   AdditiveMode _ -> True
 --   DeadDropMode -> True -- Conceivably false, but could be written and immediately updated
--- shouldUpdate w e@(Removed p utc) = case watchMode w of
+-- shouldUpdate w e@(Removed p utc) = case SyncMode w of
 --   SynchronizeMode -> True
 --   AdditiveMode _ -> False
 --   DeadDropMode -> False
 
 -- handleEvent :: WatchStrategy -> Event -> IO ()
--- handleEvent w e@(Added p utc) = case watchMode w of
+-- handleEvent w e@(Added p utc) = case SyncMode w of
 --   SynchronizeMode -> undefined -- Add file to repo
 --   AdditiveMode -> undefined -- Add file to repo
 --   DeadDropMode -> undefined -- Add file to repo, delete original
--- handleEvent w e@(Modified p utc) = case watchMode w of
+-- handleEvent w e@(Modified p utc) = case SyncMode w of
 --   SynchronizeMode -> undefined -- Overwrite file in repo
 --   AdditiveMode -> undefined -- Overwrite file in repo)
 --   DeadDropMode -> undefined -- Add file to repo, delete original
--- handleEvent w e@(Removed p utc) = case watchMode w of
+-- handleEvent w e@(Removed p utc) = case SyncMode w of
 --   SynchronizeMode -> undefined -- Remove file from reop
 --   AdditiveMode -> return () -- error ""
 --   DeadDropMode -> return () -- Add file to repo, delete original

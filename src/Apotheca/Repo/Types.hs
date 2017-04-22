@@ -138,54 +138,31 @@ type Glob = String
 
 
 
--- WatchStrategy
+-- Modes
 
--- NOTE: Watched directories are assumed to be push, and not pull
-data WatchStrategy = WatchStrategy
-  { watchMode      :: WatchMode
-  , watchDirection :: WatchDirection
-  , globFilter     :: Maybe [String]
-  , sourcePath     :: FilePath
-  , destPath       :: FilePath
-  , pollInterval   :: Int -- Microseconds
-  , forcePolling   :: Bool
-  } deriving (Show, Read, Generic)
-
-instance Serialize WatchStrategy
-instance ToJSON WatchStrategy
-instance FromJSON WatchStrategy
-instance Encodable WatchStrategy
-
-data WatchDirection
-  = WatchPush
-  | WatchPull
-  deriving (Show, Read, Generic)
-
-instance Serialize WatchDirection
-instance ToJSON WatchDirection
-instance FromJSON WatchDirection
-instance Encodable WatchDirection
-
--- TODO: Rename ConsumeMode? - since this is used in the command-line as well
--- TODO: Do we need a 'ProduceMode' for 'pulling'?
--- Does this make sense for representing both:
---  push (local -> repo)
---  and
---  pull (repo -> local)
---  deaddrop pull would delete the file from the repo after pulling, but that
---  may be sensible behavior. Should also allow:
---  (repo -> repo), but (local -> local) makes no sense just like (remote -> remote)
---  doesn't for rsync
-data WatchMode
+data SyncMode
   = SynchronizeMode -- Adds and deletes files to synchronize files
   | AdditiveMode
   | DeadDropMode -- Like additive mode, but deletes src file afterwards
   deriving (Show, Read, Eq, Generic)
 
-instance Serialize WatchMode
-instance ToJSON WatchMode
-instance FromJSON WatchMode
-instance Encodable WatchMode
+instance Serialize SyncMode
+instance ToJSON SyncMode
+instance FromJSON SyncMode
+instance Encodable SyncMode
+
+
+
+data Transaction
+  = Push
+  | Pull
+  | Transfer
+  deriving (Show, Read, Eq, Generic)
+
+instance Serialize Transaction
+instance ToJSON Transaction
+instance FromJSON Transaction
+instance Encodable Transaction
 
 
 
@@ -196,3 +173,23 @@ data WriteMode
   | Update -- Add if nonexistent, overwrite if more recent
   | Freshen -- Ignore if non-existent, overwrite if more recent
   deriving (Show, Read, Eq)
+
+
+
+-- WatchStrategy
+
+-- NOTE: Watched directories are assumed to be push, and not pull
+data WatchStrategy = WatchStrategy
+  { syncMode      :: SyncMode
+  , syncDirection :: Transaction
+  , globFilter    :: Maybe [String]
+  , sourcePath    :: FilePath
+  , destPath      :: FilePath
+  , pollInterval  :: Int -- Microseconds
+  , forcePolling  :: Bool
+  } deriving (Show, Read, Eq, Generic)
+
+instance Serialize WatchStrategy
+instance ToJSON WatchStrategy
+instance FromJSON WatchStrategy
+instance Encodable WatchStrategy

@@ -580,8 +580,8 @@ delPath force dst r = case (isf, isd) of
     haschild = not . null $ children
 
 -- pushPath - mode, src, dst, repo
-pushPath :: WatchMode -> FilePath -> Path -> Repo -> IO Repo
-pushPath wm = case wm of
+pushPath :: SyncMode -> FilePath -> Path -> Repo -> IO Repo
+pushPath sm = case sm of
   SynchronizeMode -> pushSync
   AdditiveMode -> pushAdditive
   DeadDropMode -> pushDeadDrop
@@ -590,8 +590,8 @@ pushSync src dst r = undefined
 pushAdditive src dst r = undefined
 pushDeadDrop src dst r = undefined
 
-pullPath :: WatchMode -> Path -> FilePath -> Repo -> IO Repo
-pullPath wm = case wm of
+pullPath :: SyncMode -> Path -> FilePath -> Repo -> IO Repo
+pullPath sm = case sm of
   SynchronizeMode -> pullSync
   AdditiveMode -> pullAdditive
   DeadDropMode -> pullDeadDrop
