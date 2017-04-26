@@ -40,30 +40,30 @@ module Apotheca.Repo.Manifest
 
 import           GHC.Generics
 
-import           Prelude               hiding (delete, insert, lookup, readFile,
-                                        writeFile)
-import qualified Prelude               as P
+import           Prelude                hiding (delete, insert, lookup,
+                                         readFile, writeFile)
+import qualified Prelude                as P
 
-import qualified Data.Aeson            as A
-import           Data.ByteString       (ByteString)
-import qualified Data.ByteString       as B
-import qualified Data.ByteString.Char8 as BC
-import qualified Data.List             as L
-import qualified Data.Map.Strict       as M
+import qualified Data.Aeson             as A
+import           Data.ByteString        (ByteString)
+import qualified Data.ByteString        as B
+import qualified Data.ByteString.Char8  as BC
+import qualified Data.List              as L
+import qualified Data.Map.Strict        as M
 import           Data.Maybe
 
-import qualified System.FilePath.Glob  as G
+import qualified System.FilePath.Glob   as G
 
-import qualified Crypto.Random         as R
+import qualified Crypto.Random          as R
 
 import           Apotheca.Bytes
 import           Apotheca.Encodable
 import           Apotheca.Misc
 import           Apotheca.Repo.Path
 import           Apotheca.Repo.Types
-import           Apotheca.Security.Hash  (sha2, unsalted)
-import           Data.Aeson            (Value (..), object, withArray, (.:),
-                                        (.=))
+import           Apotheca.Security.Hash (sha2, unsalted)
+import           Data.Aeson             (Value (..), object, withArray, (.:),
+                                         (.=))
 
 
 
@@ -308,7 +308,8 @@ dirNames = map fst . dirContents
 --  it to be internally unique. Having the id based on a hash of the path
 --  fulfills this function so long as we remember to change the id when we move
 --  the file. Later, we may need ids to be consistent even after moving, at
---  which case we'll likely need to move to random IDs (or hash-path + non-repeating salts).
+--  which case we'll likely need to move to incremental or random IDs (or
+--  hash-path + non-repeating salts).
 path2id :: Path -> EntryId
 path2id = unsalted sha2 . BC.pack . L.intercalate "/"
 

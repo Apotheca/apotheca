@@ -128,7 +128,7 @@ import           Apotheca.Security.Hash
 
 
 
--- Environment
+-- Environment - impermanent, per-run environment variables
 --  This is for values that may be set from cmd args to override values in the
 --  config for the duration of the execution. The environment is never written
 --  to disk, it is constructed from command-line args (or another external
@@ -186,7 +186,10 @@ data Repo = Repo
   -- TODO: Potential block buffer - for pure interface that defers writing
   --  blocks out until explicitly flushed - might need to be transactions
   --  instead - added [(BlockId,Block)] / [removed (BlockId)]
+
   -- , bufferedBlocks :: MVar (M.Map (BlockType, Key) Block) -- Needs an accompanying flushBlocks :: IO ()
+  -- or
+  -- , repoBlockStore :: a -- A (potentially flushable) blockstore
   } deriving (Show, Read)
 
 data RepoType = HiddenRepo | BareRepo deriving (Show, Read, Eq)
@@ -456,8 +459,6 @@ putFile fp p r = withFile fp WriteMode $ \h -> putHandle h p r
 -- These are all repo actions, and don't return anything
 --  unlike the get/put/del file functions (get just returns the bytestring)
 
--- TODO: transactions should go through an intermediary TreeMap representation
-
 listPath :: Bool -> Path -> Repo -> IO [Path]
 listPath rc dst r = if queryManifest (Mf.pathExists dst) r
     then return paths
@@ -469,7 +470,6 @@ listPath rc dst r = if queryManifest (Mf.pathExists dst) r
       else readDir dst r
 
 -- getPath - overwrite, recurse, src, dst, repo
--- TODO: Fix trailing-slash support
 getPath :: Bool -> Bool -> Bool -> Path -> FilePath -> Repo -> IO Repo
 getPath ow rp rc src dst r = do
     efexists <- doesFileExist dst'
@@ -512,7 +512,6 @@ getPath ow rp rc src dst r = do
     filterChild p = rc || Mf.pathIsFile p (repoManifest r)
 
 -- putPath - overwrite files, replace dirs, recurse children, src, dst, repo
--- TODO: Actually use replace-dirs flag
 putPath :: Bool -> Bool -> Bool -> FilePath -> Path -> Repo -> IO Repo
 putPath ow rp rc src dst r = do
     efexists <- doesFileExist src
