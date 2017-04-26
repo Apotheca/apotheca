@@ -65,8 +65,8 @@ data RuntimeCommand
   -- Force, dst
   | Del Bool FilePath
   -- Sync
-  | Push SyncMode (Maybe Glob) FilePath FilePath
-  | Pull SyncMode (Maybe Glob) FilePath FilePath
+  | SyncPush SyncMode (Maybe Glob) FilePath FilePath
+  | SyncPull SyncMode (Maybe Glob) FilePath FilePath
   -- | Transfer SyncMode
   -- Watch
   | Watch
