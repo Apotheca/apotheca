@@ -107,8 +107,7 @@ type Secret = ByteString
 data CipherStrategy = CipherStrategy
   { calgorithm :: Cipher
   , deriveKey  :: Bool -- TODO: Make Maybe KDFStrategy
-  , preHasher  :: Maybe HashStrategy
-  , postHasher :: Maybe HashStrategy
+  , cthasher   :: Maybe HashStrategy
   }
   deriving (Show, Read, Eq, Generic)
 
@@ -117,15 +116,10 @@ instance ToJSON CipherStrategy
 instance FromJSON CipherStrategy
 instance Encodable CipherStrategy
 
--- data CipherHeader = CipherHeader
---   { cipherStrategy :: CipherStrategy
---   }
-
 defaultCipherStrategy = CipherStrategy
   { calgorithm = AES256
   , deriveKey = True
-  , preHasher = Nothing
-  , postHasher = Nothing
+  , cthasher = Nothing
   }
 
 -- Simple derive for now: length, salt/nonce, bytes
@@ -164,8 +158,7 @@ gcipher c iv key pt = cf2f $ do
 data CipherHeader = CipherHeader
   { cipherStrategy :: CipherStrategy
   , nonce          :: Nonce
-  , preHash        :: Maybe Digest -- Could be HashHeader, but would be duplicate data re CipherStrategy
-  , postHash       :: Maybe Digest
+  , cthash         :: Maybe Digest
   } deriving (Show, Read, Eq, Generic)
 
 instance Serialize CipherHeader
@@ -183,26 +176,19 @@ encipherHeaderWith cs n k pt = do
     makeHeader ct = CipherHeader
       { cipherStrategy = cs
       , nonce = n
-      , preHash = maybe Nothing (hf pt) (preHasher cs)
-      , postHash = maybe Nothing (hf ct) (postHasher cs)
+      , cthash = maybe Nothing (hf ct) (cthasher cs)
       }
 
 decipherHeaderWith :: CipherHeader -> Secret -> ByteString -> Failable ByteString
 decipherHeaderWith ch k ct = do
     -- CryptoError_MacKeyInvalid
     -- Post-hash / cryptext check
-    case postHasher cs of
-      Just h | Just (hashWith h ct) /= postHash ch ->
-        failed $ show CryptoError_MacKeyInvalid
+    case cthasher cs of
+      Just h | Just (hashWith h ct) /= cthash ch ->
+        failed $ show CryptoError_MacKeyInvalid -- Not really a MAC, just a digest
       _ -> passed ()
-    -- Decrypt attempt
-    pt <- decipherWith cs n k' ct
-    -- Prehash /plaintext check
-    case preHasher cs of
-      Just h | Just (hashWith h pt) /= preHash ch ->
-        failed $ show CryptoError_MacKeyInvalid
-      _ -> passed ()
-    return pt
+    -- Decrypt
+    decipherWith cs n k' ct
   where
     hf x = Just . (`hashWith` x)
     cs = cipherStrategy ch
