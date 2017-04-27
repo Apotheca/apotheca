@@ -25,10 +25,27 @@ type BlockId = ByteString
 
 data BlockType
   = LocalBlock
+  -- | DistributedBlock
   | CacheBlock
   | IncomingBlock
   | OutgoingBlock
-  deriving (Show, Read, Eq)
+  deriving (Show, Read, Eq, Generic)
+
+instance Serialize BlockType
+instance ToJSON BlockType
+instance FromJSON BlockType
+instance Encodable BlockType
+
+
+data BlockHeader = BlockHeader
+  { blockId   :: BlockId  -- Is also block hash, which is a per-repo setting
+  , blockType :: BlockType
+  } deriving (Show, Read, Eq, Generic)
+
+instance Serialize BlockHeader
+instance ToJSON BlockHeader
+instance FromJSON BlockHeader
+instance Encodable BlockHeader
 
 
 
@@ -90,12 +107,13 @@ instance FromJSON (M.Map EntryId Entry) where
     return . M.fromList $ map (tagWith entryId) es
 
 data Manifest = Manifest
-  { topId   :: EntryId  -- Is always B.empty for now, can be manifestId later
+  { topId        :: EntryId  -- Is always B.empty for now, can be manifestId later
                             -- Is always a directory for now
                             -- Utility of inline or single-file manifests?
-  , entries :: EntryMap
+  , entries      :: EntryMap
   -- , blocks  :: [BlockId]  -- Cached list of all blocks owned by entries in
                               --  the manifest, for convenience
+  , manifestTime :: Int -- Used to inform AccessHeader of current time
   } deriving (Show, Read, Generic)
 
 instance Serialize Manifest
@@ -106,8 +124,8 @@ instance Encodable Manifest
 data Entry = Entry
   { entryId       :: EntryId
   , parentId      :: EntryId
-  , entryContents :: EntryContents
-  -- , entryMetaData :: EntryMetadata
+  , accessHeader  :: AccessHeader
+  , contentHeader :: ContentHeader
   } deriving (Show, Read, Generic)
 
 instance Serialize Entry
@@ -115,18 +133,45 @@ instance ToJSON Entry
 instance FromJSON Entry
 instance Encodable Entry
 
-data EntryContents
-  = DirContents DirMap
-  | FileContents [BlockId]
+-- TODO: Rename ContentHeader
+data ContentHeader
+  = DirContents DirMap -- TODO: DirContents DirHeader DirMap
+  -- | FileContents [BlockId]
+  | FileContents FileHeader
   -- | InlineEntry ByteString
   -- | SymlinkEntry EntryId
   -- | SubManifest Manifest
   deriving (Show, Read, Generic)
 
-instance Serialize EntryContents
-instance ToJSON EntryContents
-instance FromJSON EntryContents
-instance Encodable EntryContents
+instance Serialize ContentHeader
+instance ToJSON ContentHeader
+instance FromJSON ContentHeader
+instance Encodable ContentHeader
+
+data AccessHeader = AccessHeader
+  { modifyTime :: Int
+  -- , accessTime :: Int -- NOTE: Write-intensive, not useful at this time
+  -- , createTime :: Int -- NOTE: Not ctime
+  -- , metadata   :: [(String, String)] -- Future
+  } deriving (Show, Read, Generic)
+
+instance Serialize AccessHeader
+instance ToJSON AccessHeader
+instance FromJSON AccessHeader
+instance Encodable AccessHeader
+
+data FileHeader = FileHeader
+  { dataSize         :: Int
+  , dataCompression  :: GzipCompression
+  , dataHashHeader   :: Maybe HashHeader -- Plaintext checksum
+  , dataCipherHeader :: Maybe CipherHeader -- Ciphertext
+  , dataBlockHeaders :: [BlockHeader]
+  } deriving (Show, Read, Generic)
+
+instance Serialize FileHeader
+instance ToJSON FileHeader
+instance FromJSON FileHeader
+instance Encodable FileHeader
 
 
 

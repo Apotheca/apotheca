@@ -61,6 +61,7 @@ library
     -- OS
     , directory
     , filepath
+    , time
 
     -- Security / hashing / one-way functions
     , cryptonite

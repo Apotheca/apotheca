@@ -13,6 +13,7 @@ module Apotheca.Encodable
 , (@>)
 , encodeWith, decodeWith
 , encodeWithFile, decodeWithFile
+, compress, decompress
 , encodeBin, decodeBin
 , encodeJSON, decodeJSON
 , encodeYAML, decodeYAML

@@ -32,8 +32,8 @@ module Apotheca.Repo.Repo
 , getHandle
 , putHandle
 -- File
-, getFile
-, putFile
+-- , getFile
+-- , putFile
 -- Path
 , listPath
 , getPath
@@ -73,11 +73,14 @@ import qualified Data.ByteString.Char8         as BC
 import qualified Data.List                     as L
 import qualified Data.Map.Strict               as M
 import           Data.Maybe                    (fromJust, isJust, maybe)
+import           Data.Time.Clock               (UTCTime (..), getCurrentTime)
+import           Data.Time.Clock.POSIX         (utcTimeToPOSIXSeconds)
 
 import           System.Directory              (createDirectoryIfMissing,
                                                 doesDirectoryExist,
                                                 doesFileExist,
                                                 getDirectoryContents,
+                                                getModificationTime,
                                                 makeAbsolute,
                                                 removeDirectoryRecursive)
 import           System.FilePath               (dropTrailingPathSeparator,
@@ -335,11 +338,8 @@ splitBlocks r bs = splitWith strat bs
       then fromJust $ largeSplit c
       else defaultSplit c
 
-assignBlockId :: HashStrategy -> Block -> (BlockId, Block)
-assignBlockId h b = (hashWith h b, b)
-
-assignBlockIds :: Repo -> [Block] -> [(BlockId, Block)]
-assignBlockIds r bs = map (assignBlockId h) bs
+assignBlockHeaders :: Repo -> BlockType -> [Block] -> [(BlockHeader, Block)]
+assignBlockHeaders r bt bs = map (assignBlockHeader h bt) bs
   where h = blockHash $ repoConfig r
 
 
@@ -360,7 +360,7 @@ mqueryManifest f r = (a, r { repoManifest = m })
 
 
 
--- Manifest manipulations - takes the 'create/
+-- Manifest convenience manipulations - takes the 'create/
 -- TODO: rename to fooManPath/Directory/etc, too confusing otherwise
 
 -- NOTE: Combines removePath and removePathForcibly
@@ -381,14 +381,14 @@ removeDirectory :: Path -> Repo -> Repo
 removeDirectory = modifyManifest . Mf.removeDirectoryRecursive
 
 -- NOTE: Always creates parents
-createFile :: Path -> [BlockId] -> Repo -> Repo
-createFile p bids = modifyManifest (Mf.createFile p bids) . createDirectory (parent p)
+createFile :: Path -> FileHeader -> Repo -> Repo
+createFile p fh = modifyManifest (Mf.createFile p fh) . createDirectory (parent p)
 
-readFile :: Path -> Repo -> [BlockId]
+readFile :: Path -> Repo -> FileHeader
 readFile = queryManifest . Mf.readFile
 
-writeFile :: Path -> [BlockId] -> Repo -> Repo
-writeFile p bids = modifyManifest (Mf.writeFile p bids)
+writeFile :: Path -> FileHeader -> Repo -> Repo
+writeFile p fh = modifyManifest (Mf.writeFile p fh)
 
 removeFile :: Path -> Repo -> Repo
 removeFile = modifyManifest . Mf.removeFile
@@ -399,22 +399,19 @@ removeFile = modifyManifest . Mf.removeFile
 -- NOTE: Paths must already be validated or an error may occur
 -- NOTE: getFile/putFile/delFile as in file-in-the-manifest, not file-on-disk
 -- These exist because file actions modify blocks, directory actions do not
--- TODO: Rename get/put/delFile to *Data
---  *Datum <- *Handle <- *File <- *Path
-
--- NOTE: put / get terminology is slightly confusing, because the point-of-view
---  is from the repository, not the shell / user / underlying os / filesystem
 -- NOTE: only get/putPath fully obey -opr/cmdline flags properly/completely
 
-getDatum :: Path -> Repo -> IO ByteString
-getDatum p r = B.concat <$> mapM fetchLocalBlock bids
-  where
-    bids = readFile p r
-    fetchLocalBlock :: BlockId -> IO Block
-    fetchLocalBlock = (fromJust <$>) . fetchBlock (dataPath r) LocalBlock
+-- TODO: Need to split these into get-/put- ext/int
 
-putDatum :: Path -> ByteString -> Repo -> IO Repo
-putDatum p b r = do
+getDatum :: Path -> Repo -> IO ByteString
+getDatum p r = B.concat <$> mapM fetchLocalBlock bhs
+  where
+    bhs = dataBlockHeaders $ readFile p r
+    fetchLocalBlock :: BlockHeader -> IO Block
+    fetchLocalBlock = (fromJust <$>) . fetchBlock (dataPath r)
+
+putDatum :: WriteMode -> Path -> ByteString -> Repo -> IO Repo
+putDatum wm p b r = do
     -- Remove previous version if exists
     r' <- if queryManifest (Mf.pathIsFile p) r
       then delDatum p r
@@ -422,20 +419,28 @@ putDatum p b r = do
     -- Write blocks to disk
     mapM_ storeLocalBlock pairs
     -- Update manifest, return
-    return $ createFile p (map fst pairs) r
+    return $ createFile p fh r'
   where
-    pairs = assignBlockIds r $ splitBlocks r b
-    storeLocalBlock (bid, b) = storeBlock (dataPath r) LocalBlock bid b
+    fh = FileHeader
+      { dataSize = B.length b
+      , dataCompression = NoCompression
+      , dataHashHeader = Nothing
+      , dataCipherHeader = Nothing
+      , dataBlockHeaders = map fst pairs
+      }
+    pairs = assignBlockHeaders r LocalBlock $ splitBlocks r b
+    storeLocalBlock :: (BlockHeader, Block) -> IO ()
+    storeLocalBlock (bh, b) = storeBlock (dataPath r) bh b
 
 delDatum :: Path -> Repo -> IO Repo
 delDatum p r = do
     -- Remove blocks
-    mapM_ deleteLocalBlock bids
+    mapM_ deleteLocalBlock bhs
     -- Update manifest, return
     return $ removeFile p r
   where
-    bids = readFile p r
-    deleteLocalBlock = deleteBlock (dataPath r) LocalBlock
+    bhs = dataBlockHeaders $ readFile p r
+    deleteLocalBlock = deleteBlock (dataPath r)
 
 -- NOTE: This writes the datum to a handle, does not 'get a handle'
 --  Returns the bytestring in case needed elsewhere
@@ -443,14 +448,15 @@ getHandle :: Handle -> Path -> Repo -> IO ()
 getHandle h p r = getDatum p r >>= B.hPut h
 
 -- NOTE:This reads the datum from a handle, does not 'put into handle'
-putHandle :: Handle -> Path -> Repo -> IO Repo
-putHandle h p r = B.hGetContents h >>= flip (putDatum p) r
+putHandle :: WriteMode -> Handle -> Path -> Repo -> IO Repo
+putHandle wm h p r = B.hGetContents h >>= flip (putDatum wm p) r
 
-getFile :: FilePath -> Path -> Repo -> IO ()
-getFile fp p r = withFile fp ReadMode $ \h -> getHandle h p r
 
-putFile :: FilePath -> Path -> Repo -> IO Repo
-putFile fp p r = withFile fp WriteMode $ \h -> putHandle h p r
+-- getFile :: FilePath -> Path -> Repo -> IO ()
+-- getFile fp p r = withFile fp ReadMode $ \h -> getHandle h p r
+--
+-- putFile :: FilePath -> Path -> Repo -> IO Repo
+-- putFile fp p r = withFile fp WriteMode $ \h -> putHandle h p r
 
 
 
@@ -470,15 +476,15 @@ listPath rc dst r = if queryManifest (Mf.pathExists dst) r
       else readDir dst r
 
 -- getPath - overwrite, recurse, src, dst, repo
-getPath :: Bool -> Bool -> Bool -> Path -> FilePath -> Repo -> IO Repo
-getPath ow rp rc src dst r = do
+getPath :: WriteMode -> Bool -> Bool -> Path -> FilePath -> Repo -> IO Repo
+getPath wm rp rc src dst r = do
     efexists <- doesFileExist dst'
     edexists <- doesDirectoryExist dst'
     case (isf, isd) of
       (True,_) -> do -- File
         when edexists $
           error $ "Directory already exists at file target: " ++ toFilePath src
-        if ow || not efexists
+        if wm == Overwrite || not efexists
           then do
             verbose v $ "Getting: " ++ toFilePath src
             bs <- getDatum src r
@@ -508,12 +514,12 @@ getPath ow rp rc src dst r = do
     isf = queryManifest (Mf.pathIsFile src) r
     isd = queryManifest (Mf.pathIsDirectory src) r
     dst' = normalise $ dst </> takeFileName (toFilePath src)
-    getChild r src' = getPath ow rp rc src' dst' r
+    getChild r src' = getPath wm rp rc src' dst' r
     filterChild p = rc || Mf.pathIsFile p (repoManifest r)
 
 -- putPath - overwrite files, replace dirs, recurse children, src, dst, repo
-putPath :: Bool -> Bool -> Bool -> FilePath -> Path -> Repo -> IO Repo
-putPath ow rp rc src dst r = do
+putPath :: WriteMode -> Bool -> Bool -> FilePath -> Path -> Repo -> IO Repo
+putPath wm rp rc src dst r = do
     efexists <- doesFileExist src
     edexists <- doesDirectoryExist src
     case (efexists, edexists) of
@@ -522,10 +528,10 @@ putPath ow rp rc src dst r = do
         bs <- B.readFile src
         when (idexists dst') $
           error $ "Directory already exists at file target: " ++ toFilePath dst'
-        if ow || not (ifexists dst')
+        if wm == Overwrite || not (ifexists dst')
           then do
             verbose v $ "Putting: " ++ toFilePath dst'
-            putDatum dst' bs r
+            putDatum wm dst' bs r
           else do
             error $ "File already exists; use -o to overwrite: " ++ toFilePath dst'
             return r
@@ -548,7 +554,7 @@ putPath ow rp rc src dst r = do
     dst' = fromFilePath . normalise $ (toFilePath dst) </> takeFileName src
     ifexists p = queryManifest (Mf.pathIsFile p) r
     idexists p = queryManifest (Mf.pathIsDirectory p) r
-    putChild r src' = putPath ow rp rc src' dst' r
+    putChild r src' = putPath wm rp rc src' dst' r
     -- Filter files for recursive
     filterChild p = if rc
       then return True
@@ -629,6 +635,8 @@ getDirectoryRecursive p = do
   dc <- getDirectory p
   dc's <- filterM doesDirectoryExist dc >>= mapM getDirectoryRecursive
   return $ dc ++ concat dc's
+
+getPathModifyTime p = floor . utcTimeToPOSIXSeconds <$> getModificationTime p
 
 
 -- Globbing

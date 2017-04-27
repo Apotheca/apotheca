@@ -3,6 +3,13 @@
 module Apotheca.Repo.Manifest
 ( Manifest
 , emptyManifest
+, newManifest
+, newManifestIO
+-- Time
+, getManifestTime
+, setManifestTime
+, updateManifestTime
+-- File IO
 , readManifestFile
 , writeManifestFile
 -- Path-based
@@ -10,7 +17,7 @@ module Apotheca.Repo.Manifest
 , pathIsDirectory
 , pathIsFile
 -- , createPath
-, movePath
+-- , movePath
 , overwritePath
 , removePath
 , removePathForcibly
@@ -51,6 +58,8 @@ import qualified Data.ByteString.Char8  as BC
 import qualified Data.List              as L
 import qualified Data.Map.Strict        as M
 import           Data.Maybe
+import           Data.Time.Clock        (UTCTime (..), getCurrentTime)
+import           Data.Time.Clock.POSIX  (utcTimeToPOSIXSeconds)
 
 import qualified System.FilePath.Glob   as G
 
@@ -70,7 +79,7 @@ import           Data.Aeson             (Value (..), object, withArray, (.:),
 -- So this class has been through a bunch of different concepts, and has some
 --  funky baggage belied by its exported simplicity.
 --  The 'entryId' stuff is somewhat overkill, given that it doens't even expose
---  Entry or EntryContents either. I mean, why not just do a tree (or treemap)
+--  Entry or ContentHeader either. I mean, why not just do a tree (or treemap)
 --  and be done with it?
 --  The answer is (nitpicking about how-to-choose-entryid aside) future
 --  flexibility, because of:
@@ -83,9 +92,9 @@ import           Data.Aeson             (Value (..), object, withArray, (.:),
 --  Basically things people might want to configure
 
 -- TODO: [Optional] Manifest and file versioning
---  Files should be a list of blockid's consisting of initial commit + deltas
+--  Files could be a list of blockid's for initial (or current) commit + deltas
 --  You should be able to walk down a file's history: although two forked
---  manifests may forked files, somewhere down the history they have a common root.
+--  manifests may forked files, somewhere down the history they have a common origin.
 --  Keeping the history alive for one keeps those historical blocks alive for
 --  others in decay-mode. Pruning should be possible and historical blocks may
 --  disappear, but the manifests still have a record of ids and checksums.
@@ -97,15 +106,39 @@ import           Data.Aeson             (Value (..), object, withArray, (.:),
 
 -- Directory Tree lib - https://hackage.haskell.org/package/directory-tree-0.12.1/docs/System-Directory-Tree.html
 
-emptyManifest = Manifest
+emptyManifest = newManifest 0
+
+newManifest :: Int -> Manifest
+newManifest t =  Manifest
     { topId = tid
     , entries = M.singleton tid top
     -- , blocks = [] -- No owned-blocks cache for now, can iter over entries
+    , manifestTime = t
     }
   where
-    top = udirectory [] tid tid
     tid = B.empty
+    eh = accessTime t
+    top = udirectory eh [] tid tid
 
+newManifestIO :: IO Manifest
+newManifestIO = newManifest <$> getManifestTime
+
+getManifestTime :: IO Int
+getManifestTime = floor . utcTimeToPOSIXSeconds <$> getCurrentTime
+
+setManifestTime :: Int -> Manifest -> Manifest
+setManifestTime t m = m { manifestTime = t }
+
+updateManifestTime :: Manifest -> IO Manifest
+updateManifestTime m = do
+  t <- getManifestTime
+  return $ setManifestTime t m
+
+accessNow :: Manifest -> AccessHeader
+accessNow m = accessTime (manifestTime m)
+
+accessTime :: Int -> AccessHeader
+accessTime t = AccessHeader { modifyTime = t }
 
 
 -- Encoding
@@ -193,7 +226,7 @@ lookupParent' e m = fromMaybe orphanErr $ lookupParent e m
 
 lookupChild :: String -> Entry -> Manifest -> Maybe Entry
 lookupChild n e m = if isDir e
-  then (P.lookup n . dirContents $ e) >>= (`lookup` m)
+  then (P.lookup n . dirList $ e) >>= (`lookup` m)
   else Nothing
 
 lookupName :: Entry -> Manifest -> Maybe String
@@ -202,7 +235,7 @@ lookupName e m = if isTop e m
   else lookupParent e m >>= childName (entryId e)
 
 childName :: EntryId -> Entry -> Maybe String
-childName eid p = fst <$> L.find ((eid ==) . snd) (dirContents p)
+childName eid p = fst <$> L.find ((eid ==) . snd) (dirList p)
 
 -- lookupChild :: (String, EntryId) -> Manifest -> Maybe (String, Entry)
 -- lookupChild (n, eid) m = do
@@ -211,7 +244,7 @@ childName eid p = fst <$> L.find ((eid ==) . snd) (dirContents p)
 
 lookupChildren :: Entry -> Manifest -> Maybe [(String, Entry)]
 lookupChildren e m = if isDir e
-    then Just . mapMaybe f . dirContents $ e
+    then Just . mapMaybe f . dirList $ e
     else Nothing
   where
     f (n, eid) = do
@@ -226,20 +259,19 @@ assignPid pid e = e { parentId = pid }
 
 type UEntry = (EntryId -> EntryId -> Entry)
 
-uentry :: EntryContents -> UEntry
-uentry c eid pid = Entry eid pid c
-udirectory :: [(String,EntryId)] -> UEntry
-udirectory = uentry . DirContents . M.fromList
-ufile :: [BlockId] -> UEntry
-ufile = uentry . FileContents
+uentry :: AccessHeader -> ContentHeader -> UEntry
+uentry ah ch eid pid = Entry eid pid ah ch
+udirectory :: AccessHeader -> [(String,EntryId)] -> UEntry
+udirectory ah = uentry ah . DirContents . M.fromList
+ufile :: AccessHeader -> FileHeader -> UEntry
+ufile ah = uentry ah . FileContents
 
 
 
 -- Entry modification funcs
 
--- renamed to updateDir
 modifyDir :: (DirMap -> DirMap) -> Entry -> Entry
-modifyDir f e =  e { entryContents = DirContents . f . dirContentsMap $ e }
+modifyDir f e =  e { contentHeader = DirContents . f . dirMap $ e }
 
 linkParent :: Entry -> String -> Manifest -> Manifest
 linkParent e n m = insert p' m
@@ -263,7 +295,7 @@ data EntryType
   deriving (Show, Read, Eq)
 
 entryType :: Entry -> EntryType
-entryType e = case entryContents e of
+entryType e = case contentHeader e of
   DirContents _ -> DirType
   FileContents _ -> FileType
 
@@ -282,21 +314,26 @@ isFile = isEntryType FileType
 isDir :: Entry -> Bool
 isDir = isEntryType DirType
 
-fileContents :: Entry -> [BlockId]
-fileContents e = case entryContents e of
-  FileContents bids -> bids
+fileHeader :: Entry -> FileHeader
+fileHeader e = case contentHeader e of
+  FileContents fh -> fh
   _ -> isNotFileErr
 
-dirContentsMap :: Entry -> DirMap
-dirContentsMap e = case entryContents e of
+fileBlockHeaders :: Entry -> [BlockHeader]
+fileBlockHeaders e = case contentHeader e of
+  FileContents fh -> dataBlockHeaders fh
+  _ -> isNotFileErr
+
+dirMap :: Entry -> DirMap
+dirMap e = case contentHeader e of
   DirContents nids -> nids
   _ -> isNotDirErr
 
-dirContents :: Entry -> [(String,EntryId)]
-dirContents = M.toList . dirContentsMap
+dirList :: Entry -> [(String,EntryId)]
+dirList = M.toList . dirMap
 
 dirNames :: Entry -> [String]
-dirNames = map fst . dirContents
+dirNames = map fst . dirList
 
 
 
@@ -364,12 +401,13 @@ overwritePath p p' m = if pathIsDirectory pp' m
     (pp', n) = (init p', last p')  -- Parent path, name
     e = fromJust $ find p m   -- Entry
     pe = fromJust $ find pp' m -- Parent entry
-    e' = uentry (entryContents e) (path2id p') (entryId pe) -- Updated e
+    e' = uentry (accessNow m) (contentHeader e) (path2id p') (entryId pe) -- Updated e
 
-movePath :: Path -> Path -> Manifest -> Manifest
-movePath p p' m = if pathExists p' m
-  then pathAlreadyExistsErr
-  else overwritePath p p' m
+-- TODO: movePath doesn't actually work properly
+-- movePath :: Path -> Path -> Manifest -> Manifest
+-- movePath p p' m = if pathExists p' m
+--   then pathAlreadyExistsErr
+--   else overwritePath p p' m
 
 removePath :: Path -> Manifest -> Manifest
 removePath p m = case entryType . fromJust $ find p m of
@@ -389,7 +427,7 @@ removePathForcibly p m = if pathExists p m
     removeEntry = delete (entryId e) . unlinkParent e
 
 createDirectory :: Path -> Manifest -> Manifest
-createDirectory = createPath $ udirectory []
+createDirectory p m = createPath (udirectory (accessNow m) []) p m
 
 createDirectoryIfMissing :: Bool -> Path -> Manifest -> Manifest
 createDirectoryIfMissing _ [] m = m -- Reached root
@@ -430,17 +468,17 @@ removeDirectoryRecursive p m = if pathIsDirectory p m
   then removePathForcibly p m
   else isNotDirErr
 
-createFile :: Path -> [BlockId] -> Manifest -> Manifest
-createFile = flip $ createPath . ufile
+createFile :: Path -> FileHeader -> Manifest -> Manifest
+createFile p fh m = createPath (ufile (accessNow m) fh) p m
 
-readFile :: Path -> Manifest -> [BlockId]
+readFile :: Path -> Manifest -> FileHeader
 readFile p m = if pathIsFile p m
-    then fileContents . fromJust $ find p m
+    then fileHeader . fromJust $ find p m
     else isNotFileErr
 
-writeFile :: Path -> [BlockId] -> Manifest -> Manifest
-writeFile p bids m = if pathIsFile p m
-    then insert (e { entryContents = FileContents bids }) m
+writeFile :: Path -> FileHeader -> Manifest -> Manifest
+writeFile p fh m = if pathIsFile p m
+    then insert (e { contentHeader = FileContents fh }) m
     else isNotFileErr
   where
     e = fromJust $ find p m

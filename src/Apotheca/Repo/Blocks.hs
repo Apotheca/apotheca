@@ -1,52 +1,73 @@
 module Apotheca.Repo.Blocks where
 
-import           Control.Monad       (when)
+import           Control.Monad          (when)
 
-import           Data.ByteString     (ByteString)
-import qualified Data.ByteString     as B
-import qualified Data.List           as L
+import           Data.ByteString        (ByteString)
+import qualified Data.ByteString        as B
+import qualified Data.List              as L
 
-import           System.Directory    (doesFileExist, removeFile)
-import           System.FilePath     ((</>))
+import           System.Directory       (doesFileExist, removeFile)
+import           System.FilePath        ((</>))
 
 import           Apotheca.Bytes
-import           Apotheca.Repo.Types (Block (..), BlockId (..), BlockType (..),
-                                      SplitStrategy (..))
+import           Apotheca.Repo.Types    (Block (..), BlockHeader (..),
+                                         BlockId (..), BlockType (..),
+                                         SplitStrategy (..))
+import           Apotheca.Security.Hash
 
 
 
 blockDir :: BlockType -> FilePath
 blockDir bt = case bt of
   LocalBlock -> "local"
+  -- DistributedBlock -> "distributed"
   CacheBlock -> "cache"
   IncomingBlock -> "incoming"
   OutgoingBlock -> "outgoing"
 
 blockDirs = map blockDir [LocalBlock, CacheBlock, IncomingBlock, OutgoingBlock]
 
--- NOTE: lots of FilePath -> BlockType -> Key -> ...
---  type BlockRef = (FilePath, BlockType, Key)
+blockPath :: BlockHeader -> FilePath
+blockPath bh = blockDir (blockType bh) </> b64url (blockId bh)
 
-blockPath :: BlockType -> BlockId -> FilePath
-blockPath bt bid = blockDir bt </> b64url bid
+fullBlockPath :: FilePath -> BlockHeader -> FilePath
+fullBlockPath p bh = p </> blockPath bh
 
-doesBlockExist :: FilePath -> BlockType -> BlockId -> IO Bool
-doesBlockExist p bt bid = doesFileExist $ p </> blockPath bt bid
+doesBlockExist :: FilePath -> BlockHeader -> IO Bool
+doesBlockExist p bh = doesFileExist $ fullBlockPath p bh
 
-fetchBlock :: FilePath -> BlockType -> BlockId -> IO (Maybe Block)
-fetchBlock p bt bid = do
-    exists <- doesBlockExist p bt bid
+fetchBlock :: FilePath -> BlockHeader -> IO (Maybe Block)
+fetchBlock p bh = do
+    exists <- doesBlockExist p bh
     if exists
-      then Just <$> B.readFile (p </> blockPath bt bid)
+      then Just <$> B.readFile (fullBlockPath p bh)
       else return Nothing
 
-storeBlock :: FilePath -> BlockType -> BlockId -> Block -> IO ()
-storeBlock p bt bid b = B.writeFile (p </> blockPath bt bid) b
+storeBlock :: FilePath -> BlockHeader -> Block -> IO ()
+storeBlock p bh b = B.writeFile (fullBlockPath p bh) b
 
-deleteBlock :: FilePath -> BlockType -> BlockId -> IO ()
-deleteBlock p bt bid = do
-  exists <- doesBlockExist p bt bid
-  when exists $ removeFile (p </> blockPath bt bid)
+deleteBlock :: FilePath -> BlockHeader -> IO ()
+deleteBlock p bh = do
+  exists <- doesBlockExist p bh
+  when exists $ removeFile (fullBlockPath p bh)
+
+
+-- Assign headers
+
+newBlockHeader :: BlockId -> BlockType -> BlockHeader
+newBlockHeader bid bt = BlockHeader
+  { blockId = bid
+  , blockType = bt
+  }
+
+makeBlockHeader :: HashStrategy -> BlockType -> Block -> BlockHeader
+makeBlockHeader h bt b = newBlockHeader (hashWith h b) bt
+
+assignBlockHeader :: HashStrategy -> BlockType -> Block -> (BlockHeader, Block)
+assignBlockHeader h bt b = (makeBlockHeader h bt b, b)
+
+-- validateBlockWithHeader :: HashStrategy -> Block -> BlockHeader -> Bool
+-- validateBlockWithHeader h b bh = (hashWith h b) == blockId bh
 
 
 -- Splitting strategy
