@@ -95,7 +95,7 @@ type Ignore = [(String, G.Pattern)]
 --  the POSIX / *nix inode structure. Right now it is a simplified version, as
 --  it does not have metadata and other bits yet (see: Manifest p d f).
 
-type EntryId = ByteString
+type EntryId = Integer
 type EntryMap = M.Map EntryId Entry
 type DirMap = M.Map String EntryId
 
@@ -114,6 +114,7 @@ data Manifest = Manifest
   -- , blocks  :: [BlockId]  -- Cached list of all blocks owned by entries in
                               --  the manifest, for convenience
   , manifestTime :: Int -- Used to inform AccessHeader of current time
+  , ctr          :: Integer -- Next available EntryId
   } deriving (Show, Read, Generic)
 
 instance Serialize Manifest

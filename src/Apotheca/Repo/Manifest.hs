@@ -17,8 +17,7 @@ module Apotheca.Repo.Manifest
 , pathIsDirectory
 , pathIsFile
 -- , createPath
--- , movePath
-, overwritePath
+, movePath
 , removePath
 , removePathForcibly
 , createDirectory
@@ -114,9 +113,10 @@ newManifest t =  Manifest
     , entries = M.singleton tid top
     -- , blocks = [] -- No owned-blocks cache for now, can iter over entries
     , manifestTime = t
+    , ctr = tid + 1
     }
   where
-    tid = B.empty
+    tid = 0
     eh = accessTime t
     top = udirectory eh [] tid tid
 
@@ -213,6 +213,10 @@ delete k = liftU $ M.delete k
 
 
 -- Entry functions
+
+increment :: Manifest -> (EntryId, Manifest)
+increment m = (ctr m, m')
+  where m' = m { ctr = ctr m + 1 }
 
 top :: Manifest -> Entry
 top m = fromJust $ lookup (topId m) m
@@ -341,19 +345,11 @@ dirNames = map fst . dirList
 -- Path / tree funcs
 --  Semantics are modeled after System.Directory
 
--- NOTE: EntryId doesn't need to exposed or provided externally - we just need
---  it to be internally unique. Having the id based on a hash of the path
---  fulfills this function so long as we remember to change the id when we move
---  the file. Later, we may need ids to be consistent even after moving, at
---  which case we'll likely need to move to incremental or random IDs (or
---  hash-path + non-repeating salts).
-path2id :: Path -> EntryId
-path2id = unsalted sha2 . BC.pack . L.intercalate "/"
-
-pathNotExistErr = error "Error: Path does not exist."
-pathAlreadyExistsErr = error "Error: Path already exists."
-dirNotExistErr = error "Error: Directory does not exist."
-fileNotExistErr = error "Error: File does not exist."
+parentNotExistErr = error "Parent directory does not exist."
+pathNotExistErr = error "Path does not exist."
+pathAlreadyExistsErr = error "Path already exists."
+dirNotExistErr = error "Directory does not exist."
+fileNotExistErr = error "File does not exist."
 
 findFrom :: Entry -> Path -> Manifest -> Maybe Entry
 findFrom e (n:ns) m = do
@@ -377,37 +373,31 @@ pathIsDirectory p m = maybe False isDir $ find p m
 pathIsFile :: Path -> Manifest -> Bool
 pathIsFile p m = maybe False isFile $ find p m
 
--- Yes this is confusing, because p = path but n = parentId and p' = parentEntry
+-- NOTE: Parent path must exist or it will error
 createPath :: UEntry -> Path -> Manifest -> Manifest
 createPath _ [] _ = error "Error: Cannot create root."
-createPath ue p m = if pathIsDirectory pp m
-    then linkParent e n . insert e $ m
-    else isNotDirErr
+createPath ue p m
+    | pathExists p m = pathAlreadyExistsErr
+    | pathIsDirectory pp m = linkParent e n . insert e $ m'
+    | otherwise = parentNotExistErr
   where
     (pp,n) = (init p, last p) -- Parent path, name
     pe = fromJust $ find pp m -- Parent entry
-    e = ue (path2id p) (entryId pe)
+    e = ue eid (entryId pe)
+    (eid, m') = increment m
 
--- NOTE: Because ids are based on paths, we must change them when we move them
---  to reflect the new path, else we will get the same id if we create a new
---  entry at the old path
-overwritePath :: Path -> Path -> Manifest -> Manifest
-overwritePath [] _ _ = error "Cannot move root."
-overwritePath _ [] _ = error "Cannot move onto root."
-overwritePath p p' m = if pathIsDirectory pp' m
-    then linkParent e' n . insert e' . remove e . unlinkParent e $ m
-    else error "Parent directory does not exist."
+movePath :: Path -> Path -> Manifest -> Manifest
+movePath [] _ _ = error "Cannot move root."
+movePath _ [] _ = error "Cannot move onto root."
+movePath p p' m
+    | pathExists p' m = pathAlreadyExistsErr
+    | pathIsDirectory pp' m = linkParent e' n . insert e' . unlinkParent e $ m
+    | otherwise = parentNotExistErr
   where
     (pp', n) = (init p', last p')  -- Parent path, name
-    e = fromJust $ find p m   -- Entry
-    pe = fromJust $ find pp' m -- Parent entry
-    e' = uentry (accessNow m) (contentHeader e) (path2id p') (entryId pe) -- Updated e
-
--- TODO: movePath doesn't actually work properly
--- movePath :: Path -> Path -> Manifest -> Manifest
--- movePath p p' m = if pathExists p' m
---   then pathAlreadyExistsErr
---   else overwritePath p p' m
+    e = fromJust $ find p m   -- Src entry
+    pe = fromJust $ find pp' m -- Dest parent entry
+    e' = e { parentId = entryId pe }
 
 removePath :: Path -> Manifest -> Manifest
 removePath p m = case entryType . fromJust $ find p m of
