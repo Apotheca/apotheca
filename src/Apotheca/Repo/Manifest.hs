@@ -504,10 +504,11 @@ isOrphan :: Entry -> Manifest -> Bool
 isOrphan e m = isNothing $ lookupParent e m
 
 isIndirectOrphan :: Entry -> Manifest -> Bool
-isIndirectOrphan e m = case (isTop e m, lookupParent e m) of
-  (True, _) -> False -- Top is never an orphan
-  (False, Just e') -> isIndirectOrphan e' m
-  (_,_) -> True
+isIndirectOrphan e m
+    | isTop e m = False -- Top is never an orphan
+    | isJust e' = isIndirectOrphan (fromJust e') m
+    | otherwise = True
+  where e' = lookupParent e m
 
 -- findOrphans :: Manifest -> [Entry]
 

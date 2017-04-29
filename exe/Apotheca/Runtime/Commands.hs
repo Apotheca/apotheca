@@ -60,8 +60,8 @@ data RuntimeCommand
   | List Bool Bool FilePath -- Recurse, tree, dst
   -- TODO: Add --large :: (Maybe Bool) flag to the opr flagset
   -- Overwrite files, replace [instead of merge] directories, recursive
-  | Get WriteMode Bool Bool FilePath FilePath
-  | Put WriteMode Bool Bool FilePath FilePath
+  | Get GetFlags Bool Bool FilePath FilePath
+  | Put PutFlags Bool Bool FilePath FilePath
   -- Force, dst
   | Del Bool FilePath
   -- Sync
@@ -98,8 +98,8 @@ runCommand cmd e = do
       r <- openRepo e
       case cmd of
         List rc t dst -> runList rc t (convertInt dst) r
-        Get wm rp rc src dst -> runGet wm rp rc (convertInt src) (convertExt dst) r
-        Put wm rp rc src dst -> runPut wm rp rc (convertExt src) (convertInt dst) r
+        Get gf rp rc src dst -> runGet gf rp rc (convertInt src) (convertExt dst) r
+        Put pf rp rc src dst -> runPut pf rp rc (convertExt src) (convertInt dst) r
         Del force dst -> runDel force (convertInt dst) r
         _ -> putStrLn "Unimplemented command!"
   where
@@ -178,16 +178,16 @@ runList rc tree dst r = do
       else toFilePath
 
 -- runPut ow rp rc src dst r = putPath ow rp rc src dst r >>= void . persistRepo
-runPut wm rp rc src dst r = if src == "-"
-    then putHandle wm stdin (fromFilePath dst) r >>= void . persistRepo
+runPut pf rp rc src dst r = if src == "-"
+    then putHandle pf stdin (fromFilePath dst) r >>= void . persistRepo
     else multiplex f src r >>= void . persistRepo
-  where f src' = putPath wm rp rc src' (fromFilePath dst)
+  where f src' = putPath pf rp rc src' (fromFilePath dst)
 
 -- runGet ow rp rc src dst r = getPath ow rp rc src dst r >>= void . persistRepo
-runGet wm rp rc src dst r = if dst == "-"
-    then getHandle stdout (fromFilePath src) r
+runGet gf rp rc src dst r = if dst == "-"
+    then getHandle gf stdout (fromFilePath src) r
     else multiplex' f src r >>= void . persistRepo
-  where f src' = getPath wm rp rc src' dst
+  where f src' = getPath gf rp rc src' dst
 
 -- runDel force dst r = delPath force dst r >>= void . persistRepo
 runDel force dst r = multiplex' (delPath force) dst r >>= void . persistRepo

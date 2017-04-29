@@ -108,8 +108,7 @@ data CipherStrategy = CipherStrategy
   { calgorithm :: Cipher
   , deriveKey  :: Bool -- TODO: Make Maybe KDFStrategy
   , cthasher   :: Maybe HashStrategy
-  }
-  deriving (Show, Read, Eq, Generic)
+  } deriving (Show, Read, Eq, Generic)
 
 instance Serialize CipherStrategy
 instance ToJSON CipherStrategy
@@ -119,7 +118,7 @@ instance Encodable CipherStrategy
 defaultCipherStrategy = CipherStrategy
   { calgorithm = AES256
   , deriveKey = True
-  , cthasher = Nothing
+  , cthasher = Just $ newHashStrategy SHA2
   }
 
 -- Simple derive for now: length, salt/nonce, bytes

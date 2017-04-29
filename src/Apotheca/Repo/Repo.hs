@@ -403,15 +403,15 @@ removeFile = modifyManifest . Mf.removeFile
 
 -- TODO: Need to split these into get-/put- ext/int
 
-getDatum :: Path -> Repo -> IO ByteString
-getDatum p r = B.concat <$> mapM fetchLocalBlock bhs
+getDatum :: GetFlags -> Path -> Repo -> IO ByteString
+getDatum gf p r = B.concat <$> mapM fetchLocalBlock bhs
   where
     bhs = dataBlockHeaders $ readFile p r
     fetchLocalBlock :: BlockHeader -> IO Block
     fetchLocalBlock = (fromJust <$>) . fetchBlock (dataPath r)
 
-putDatum :: WriteMode -> Path -> ByteString -> Repo -> IO Repo
-putDatum wm p b r = do
+putDatum :: PutFlags -> Path -> ByteString -> Repo -> IO Repo
+putDatum pf p b r = do
     -- Remove previous version if exists
     r' <- if queryManifest (Mf.pathIsFile p) r
       then delDatum p r
@@ -444,12 +444,12 @@ delDatum p r = do
 
 -- NOTE: This writes the datum to a handle, does not 'get a handle'
 --  Returns the bytestring in case needed elsewhere
-getHandle :: Handle -> Path -> Repo -> IO ()
-getHandle h p r = getDatum p r >>= B.hPut h
+getHandle :: GetFlags -> Handle -> Path -> Repo -> IO ()
+getHandle gf h p r = getDatum gf p r >>= B.hPut h
 
 -- NOTE:This reads the datum from a handle, does not 'put into handle'
-putHandle :: WriteMode -> Handle -> Path -> Repo -> IO Repo
-putHandle wm h p r = B.hGetContents h >>= flip (putDatum wm p) r
+putHandle :: PutFlags -> Handle -> Path -> Repo -> IO Repo
+putHandle pf h p r = B.hGetContents h >>= flip (putDatum pf p) r
 
 
 -- getFile :: FilePath -> Path -> Repo -> IO ()
@@ -476,8 +476,8 @@ listPath rc dst r = if queryManifest (Mf.pathExists dst) r
       else readDir dst r
 
 -- getPath - overwrite, recurse, src, dst, repo
-getPath :: WriteMode -> Bool -> Bool -> Path -> FilePath -> Repo -> IO Repo
-getPath wm rp rc src dst r = do
+getPath :: GetFlags -> Bool -> Bool -> Path -> FilePath -> Repo -> IO Repo
+getPath gf rp rc src dst r = do
     efexists <- doesFileExist dst'
     edexists <- doesDirectoryExist dst'
     case (isf, isd) of
@@ -487,7 +487,7 @@ getPath wm rp rc src dst r = do
         if wm == Overwrite || not efexists
           then do
             verbose v $ "Getting: " ++ toFilePath src
-            bs <- getDatum src r
+            bs <- getDatum gf src r
             debug v $ "Writing file " ++ dst'
             B.writeFile dst' bs
             return r
@@ -511,15 +511,16 @@ getPath wm rp rc src dst r = do
     -- doesFileExist dst >>= (flip when) $ error "File exists at target."
   where
     v = verbosity $ repoEnv r
+    wm = gfWriteMode gf
     isf = queryManifest (Mf.pathIsFile src) r
     isd = queryManifest (Mf.pathIsDirectory src) r
     dst' = normalise $ dst </> takeFileName (toFilePath src)
-    getChild r src' = getPath wm rp rc src' dst' r
+    getChild r src' = getPath gf rp rc src' dst' r
     filterChild p = rc || Mf.pathIsFile p (repoManifest r)
 
 -- putPath - overwrite files, replace dirs, recurse children, src, dst, repo
-putPath :: WriteMode -> Bool -> Bool -> FilePath -> Path -> Repo -> IO Repo
-putPath wm rp rc src dst r = do
+putPath :: PutFlags -> Bool -> Bool -> FilePath -> Path -> Repo -> IO Repo
+putPath pf rp rc src dst r = do
     efexists <- doesFileExist src
     edexists <- doesDirectoryExist src
     case (efexists, edexists) of
@@ -530,8 +531,8 @@ putPath wm rp rc src dst r = do
           error $ "Directory already exists at file target: " ++ toFilePath dst'
         if wm == Overwrite || not (ifexists dst')
           then do
-            verbose v $ "Putting: " ++ toFilePath dst'
-            putDatum wm dst' bs r
+            verbose v $ "Putting file: " ++ toFilePath dst'
+            putDatum pf dst' bs r
           else do
             error $ "File already exists; use -o to overwrite: " ++ toFilePath dst'
             return r
@@ -543,18 +544,19 @@ putPath wm rp rc src dst r = do
             verbose v $ "Replacing:" ++ toFilePath dst'
             delPath True dst' r
           else do
-            verbose v $ "Putting: " ++ toFilePath dst'
+            verbose v $ "Putting dir: " ++ toFilePath dst'
             return $ createDirectory dst' r
         -- The filterM strips child directories if non-recursive
         getDirectory src >>= filterM filterChild >>= foldM putChild r
       _ -> error "Put error: Source path does not exist."
   where
     v = verbosity $ repoEnv r
+    wm = pfWriteMode pf
     -- Directory dst
     dst' = fromFilePath . normalise $ (toFilePath dst) </> takeFileName src
     ifexists p = queryManifest (Mf.pathIsFile p) r
     idexists p = queryManifest (Mf.pathIsDirectory p) r
-    putChild r src' = putPath wm rp rc src' dst' r
+    putChild r src' = putPath pf rp rc src' dst' r
     -- Filter files for recursive
     filterChild p = if rc
       then return True

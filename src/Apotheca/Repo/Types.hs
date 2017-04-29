@@ -220,6 +220,18 @@ data WriteMode
   | Freshen -- Ignore if non-existent, overwrite if more recent
   deriving (Show, Read, Eq)
 
+data PutFlags = PutFlags
+  { pfWriteMode   :: WriteMode
+  , pfTime        :: Maybe Int
+  , pfHashStrat   :: Maybe HashStrategy -- Plaintext checksum
+  , pfCompression :: Maybe GzipCompression
+  , pfCipherStrat :: Maybe CipherStrategy -- Ciphertext
+  } deriving (Show, Read, Eq)
+
+data GetFlags = GetFlags
+  { gfWriteMode :: WriteMode
+  } deriving (Show, Read, Eq)
+
 
 
 -- WatchStrategy

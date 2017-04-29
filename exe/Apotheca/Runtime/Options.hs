@@ -7,10 +7,16 @@ module Apotheca.Runtime.Options
 
 import           Options.Applicative
 
+import           Data.ByteString           (ByteString)
+import qualified Data.ByteString           as B
+
+import           Apotheca.Encodable        (GzipCompression (..))
 import           Apotheca.Logs
 import           Apotheca.Repo.Path
 import           Apotheca.Repo.Repo
 import           Apotheca.Repo.Types
+import           Apotheca.Security.Cipher
+import           Apotheca.Security.Hash
 
 import           Apotheca.Runtime.Commands
 
@@ -160,7 +166,7 @@ parseList = List
 parseGet = Get
   -- <$> parseStdout "Print file to stdout. Ignores -orp, EXT-PATH."
   -- <$> parseOverwrite "Overwrite existing files."
-  <$> parseWriteMode
+  <$> parseGetFlags
   <*> parseReplace "Replace directories instead of merging."
   <*> parseRecurse "Recurse over directory contents."
   <*> parseIntPath -- "Source file or directory in store."
@@ -169,7 +175,7 @@ parseGet = Get
 parsePut = Put
   -- <$> parseStdin "Input file from stdin. Ignores EXT-PATH, implies -o." -- implies /currently/
   -- <$> parseOverwrite "Overwrite existing files."
-  <$> parseWriteMode
+  <$> parsePutFlags
   <*> parseReplace "Replace directories instead of merging."
   <*> parseRecurse "Recurse over directory contents."
   <*> parseExtPath -- "Source file or directory in store."
@@ -299,6 +305,12 @@ parseSyncMode = flag' DeadDropMode (long "deaddrop" <> help "Deletes source afte
   <|> flag' SynchronizeMode (long "synchronize" <> help "Synchronize mode; DEFAULT")
   <|> pure SynchronizeMode
 
+parseGzipCompression :: Parser GzipCompression
+parseGzipCompression = flag' FastestCompression (long "gzip-fast" <> help "Compress with gzip (fast).")
+  <|> flag' BestCompression (short 'Z' <> long "gzip-best" <> help "Compress with gzip (best).")
+  <|> flag' BalancedCompression (short 'z' <> long "gzip" <> help "Compress with gzip (balanced).")
+  <|> flag' NoCompression (long "no-gzip" <> help "Do not compress.")
+
 parseWriteMode :: Parser WriteMode
 parseWriteMode
   = flag' Add
@@ -318,3 +330,37 @@ parseWriteMode
     <> long "freshen"
     <> help "Ignore if non-existent, overwrite if more recent.")
   <|> pure Add
+
+
+prefixLong :: Maybe String -> String -> Mod OptionFields a
+prefixLong mpf lng = long $ maybe lng (\pf -> concat [pf,"-",lng]) mpf
+
+-- NOTE: Having no default value on the first option makes this work right with
+--  flags and Maybe HashStrategy
+--  eg, "foo --hash Tiger == Just HashStrategy; "foo" == Nothing
+--  If a default value is given, it is always a Just HashStrategy
+parseHashStrat :: Maybe String -> Parser HashStrategy
+parseHashStrat mprefix = HashStrategy
+    <$> option auto (pflong "hash" <> metavar "HASH" <> help "Hash algorithm.")
+    <*> option auto (pflong "salt" <> metavar "SALT" <> value B.empty <> help "Salt.")
+    <*> optional (option auto (pflong "hlimit" <> metavar "HLIMIT" <> help "Hash limit."))
+  where
+    pflong = prefixLong mprefix
+
+parseCipherStrat :: Parser CipherStrategy
+parseCipherStrat = CipherStrategy
+    <$> option auto (long "cipher" <> metavar "CIPHER" <> help "Cipher algorithm.")
+    <*> switch (long "derive-key" <> help "Derive an appropriate key from the secret.")
+    <*> optional (parseHashStrat $ Just "ct")
+
+parsePutFlags :: Parser PutFlags
+parsePutFlags = PutFlags
+  <$> parseWriteMode
+  <*> optional (option auto (long "mtime" <> metavar "TIME" <> help "Modification timestamp."))
+  <*> optional (parseHashStrat Nothing)
+  <*> optional parseGzipCompression
+  <*> optional parseCipherStrat
+
+parseGetFlags :: Parser GetFlags
+parseGetFlags = GetFlags
+  <$> parseWriteMode
