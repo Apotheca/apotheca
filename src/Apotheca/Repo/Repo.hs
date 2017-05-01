@@ -129,36 +129,6 @@ import           Apotheca.Security.Hash
 -- TODO: Manifest.hs is written nicely, this badly needs to be refactored to
 --  match that quality and expressive power.
 
-
-
--- Environment - impermanent, per-run environment variables
---  This is for values that may be set from cmd args to override values in the
---  config for the duration of the execution. The environment is never written
---  to disk, it is constructed from command-line args (or another external
---  argument source) - for example, any cmd flags before the first subcommand
---  Verbosity is a good example.
-
-data Env = Env
-  { repoDir     :: FilePath
-  , repoType    :: RepoType
-  , extDir      :: FilePath -- External working path - rename `ewp`?
-  , intDir      :: Path     -- Internal working path - rename `iwp`?
-  , selManifest :: Maybe String
-  , dryRun      :: Bool  -- Dry run, don't write any changes, just log them
-  -- , splitStrat :: SplitStrategy  -- Block splitting strat
-  -- , hashStrat :: Maybe HashStrategy -- File checksums
-  -- , cipherStrat :: Maybe CipherStrategy -- Symmetric cipher use
-  -- , exchangeStrat :: Maybe ExchangeStrategy -- Key exchange (asymmetric / pubkey)
-  -- , signingStrat :: Maybe SigningStrategy  --
-  , magicSlash  :: Bool
-  , verbosity   :: Verbosity
-  } deriving (Show, Read, Generic)
-
--- instance Serialize Env
--- instance ToJSON Env
--- instance FromJSON Env
--- instance Encodable Env
-
 defaultEnv = Env
   { repoDir = "."
   , repoType = HiddenRepo
@@ -178,24 +148,6 @@ dataDir e = case repoType e of
 dataPath = dataDir . repoEnv
 
 
-
-data Repo = Repo
-  { repoEnv      :: Env
-  , repoConfig   :: Config
-  , repoManifest :: Manifest
-  , repoIgnore   :: Ignore
-  -- TODO: Implement these later
-  -- , distributedParams :: Maybe DistConfig ... -- Should include keyspace, etc
-  -- TODO: Potential block buffer - for pure interface that defers writing
-  --  blocks out until explicitly flushed - might need to be transactions
-  --  instead - added [(BlockId,Block)] / [removed (BlockId)]
-
-  -- , bufferedBlocks :: MVar (M.Map (BlockType, Key) Block) -- Needs an accompanying flushBlocks :: IO ()
-  -- or
-  -- , repoBlockStore :: a -- A (potentially flushable) blockstore
-  } deriving (Show, Read)
-
-data RepoType = HiddenRepo | BareRepo deriving (Show, Read, Eq)
 
 defaultRepo = Repo
   { repoEnv = defaultEnv
