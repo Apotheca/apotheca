@@ -431,6 +431,14 @@ putDatum pf p b r = do
     pairs = assignBlockHeaders r LocalBlock $ splitBlocks r b
     storeLocalBlock :: (BlockHeader, Block) -> IO ()
     storeLocalBlock (bh, b) = storeBlock (dataPath r) bh b
+    -- TODO: pre- vs post-encryption splitting
+    --  Encryption /before/ splitting == whole-file encryption
+    --  Encryption /after/ splitting == per-block encryption
+    --  This means that if per-block encryption is specified, the block split
+    --  strategy should be ignored in favor of the encryption block split.
+    --  This would require that CipherHeader use same-length lists instead of singles
+    --  Eg: nonces :: [Nonce], digests :: Maybe [Digest]
+    --  Unique nonces are essential when using per-block encryption
 
 delDatum :: Path -> Repo -> IO Repo
 delDatum p r = do

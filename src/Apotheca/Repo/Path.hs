@@ -16,9 +16,9 @@ import           System.FilePath
 --  2) stringly-typed for now
 -- TODO: Strongly-typed path elements
 --  newtype Path = Path { unpath :: [PathElement] }
---  data PathElement = Root | Dir String | File String | TrailingSep
+--  data PathElement = RootElem | DirElem String | FileElem String | TrailingSep
 -- TODO: Path<->String parsing
---  show (Root "drive" <::/> Dir "dir" </> Dir "other" </:> File "file")
+--  show (RootElem "drive" <::/> DirElem "dir" </> DirElem "other" </:> FileElem "file")
 --    == "drive::/dir/dir2/:file"
 
 toFilePath :: Path -> FilePath

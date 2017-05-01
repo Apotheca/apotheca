@@ -106,7 +106,9 @@ type Secret = ByteString
 
 data CipherStrategy = CipherStrategy
   { calgorithm :: Cipher
-  , deriveKey  :: Bool -- TODO: Make Maybe KDFStrategy
+  , deriveKey  :: Bool -- TODO: Make Maybe DeriveStrategy
+  -- , deriveSalt :: ByteString -- [hash of] timestamp
+  -- , splitStrat :: Maybe SplitStrategy? -- Split
   , cthasher   :: Maybe HashStrategy
   } deriving (Show, Read, Eq, Generic)
 
@@ -135,9 +137,23 @@ deriveWith cs s k = k'
       then derive (cipherKeySize . calgorithm $ cs) s k
       else k
 
---
+
 
 -- NOTE: Nonce and key must be validated before this is called
+-- TODO: This is unsafe with reused keys, even with nonces, because ctr is a stream
+--  cipher and if a nonce collision happens with the same key, two ciphertexts can
+--  be xord together for cryptanalysis.
+--  Example: https://news.ycombinator.com/item?id=2117472
+--  We should:
+--  1) include [hash of] timestamp in the derive salt
+--  2) store the derived key in the header instead of generating it again on decrypt
+--  3) require derive-keys with ctr / stream ciphers
+--  4) expose other modes such as AES256CBC
+--  Right now, derived keys just use the cipher nonce for generation, which means
+--  that a derived key will be the the same for each [cipher] nonce.
+--  This is sufficient for now for proof-of-concept, as keys / nonces are unlikely
+--  to be repeated with small-scale use, and this is to be disclosed in a disclaimer
+--  in the readme.
 gcipher :: C.BlockCipher c => c -> Nonce -> ByteString -> ByteString -> Failable ByteString
 gcipher c iv key pt = cf2f $ do
     ctx <- cipherInit key
@@ -148,7 +164,6 @@ gcipher c iv key pt = cf2f $ do
     giv c iv = case C.makeIV iv of
       Just iv' -> CryptoPassed iv'
       Nothing -> CryptoFailed CryptoError_IvSizeInvalid
-
 
 
 

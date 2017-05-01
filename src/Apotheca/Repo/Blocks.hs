@@ -88,7 +88,7 @@ splitWith (AdaptiveSplit (mn, mx)) = L.unfoldr $ \b -> if B.null b
     -- NOTE: The `min mx` is technically unnecessary because (npotf n <= n)
     -- NOTE: This is technically npotf-between
     npotf = max mn . min mx . (2^) . floor . logBase 2 . fromIntegral
-splitWith NoSplit = (: [])
+splitWith NoSplit = (: []) -- Surprise!
 
 -- Shorthand convenience
 sws = splitWith

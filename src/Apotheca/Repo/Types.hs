@@ -51,6 +51,13 @@ instance Encodable BlockHeader
 
 -- Split strategy - how a datum is split into blocks
 
+-- TODO: NoSplit is a split strategy, but NoCipher is not a cipher strategy
+--  because it uses a Maybe CipherStrategy instead.
+--  For consistency, should strategies be the form of NoFoo, or of Maybe Foo?
+--  Viewed from a type perspective, should every FooStrategy have a NoStrategy?
+--  Strategies with a NoStrategy == some sort of transformer?
+--  Ie: type CipherTransformer = Maybe CipherStrategy
+
 data SplitStrategy
   = ExplicitSplit Int
   | AdaptiveSplit (Int, Int)
@@ -140,7 +147,8 @@ data ContentHeader
   -- | FileContents [BlockId]
   | FileContents FileHeader
   -- | InlineEntry ByteString
-  -- | SymlinkEntry EntryId
+  -- | SymlinkEntry Path -- Soft link, points to a path that may or may not exist
+  -- | HardLink EntryId -- Hard link, points to an entry that must exist
   -- | SubManifest Manifest
   deriving (Show, Read, Generic)
 
@@ -231,6 +239,11 @@ data PutFlags = PutFlags
 data GetFlags = GetFlags
   { gfWriteMode :: WriteMode
   } deriving (Show, Read, Eq)
+
+-- TODO: Delflags later?
+-- data DelFlags = DelFlags
+--   { dfForce :: Bool
+--   } deriving (Show, Read, Eq)
 
 
 
