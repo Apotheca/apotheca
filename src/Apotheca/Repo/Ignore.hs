@@ -1,7 +1,7 @@
 module Apotheca.Repo.Ignore
 ( Ignore (..)
 , ignore
-, readIgnoreFile, writeIgnoreFile
+, readIgnore, writeIgnore
 , parseIgnore
 , doesIgnore
 ) where
@@ -20,11 +20,11 @@ ignore :: [String] -> Ignore
 ignore = map (\a -> (a, G.simplify $ G.compile a))
 
 -- Ignore file must contain no extra space, be only patterns and newlines
-readIgnoreFile :: FilePath -> IO Ignore
-readIgnoreFile p = parseIgnore . BC.unpack <$> BC.readFile p
+readIgnore :: FilePath -> IO Ignore
+readIgnore p = parseIgnore . BC.unpack <$> BC.readFile p
 
-writeIgnoreFile :: FilePath -> Ignore -> IO ()
-writeIgnoreFile p = writeFile p . unlines . map fst
+writeIgnore :: FilePath -> Ignore -> IO ()
+writeIgnore p = writeFile p . unlines . map fst
 
 parseIgnore :: String -> Ignore
 parseIgnore = ignore . lines

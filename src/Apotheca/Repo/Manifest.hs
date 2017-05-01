@@ -10,8 +10,8 @@ module Apotheca.Repo.Manifest
 , setManifestTime
 , updateManifestTime
 -- File IO
-, readManifestFile
-, writeManifestFile
+, readManifest
+, writeManifest
 -- Path-based
 , pathExists
 , pathIsDirectory
@@ -145,15 +145,15 @@ accessTime t = AccessHeader { modifyTime = t }
 
 defaultManifestEncoding = YAMLFormat @> NoCompression
 
-readManifestFile :: FilePath -> IO Manifest
-readManifestFile p = do
+readManifest :: FilePath -> IO Manifest
+readManifest p = do
   mcfg <- decodeWithFile p defaultManifestEncoding
   case mcfg of
     Just cfg -> return cfg
     Nothing -> error $ "Could not parse config."
 
-writeManifestFile :: FilePath -> Manifest -> IO ()
-writeManifestFile p = encodeWithFile p defaultManifestEncoding
+writeManifest :: FilePath -> Manifest -> IO ()
+writeManifest p = encodeWithFile p defaultManifestEncoding
 
 
 -- Lifting functions

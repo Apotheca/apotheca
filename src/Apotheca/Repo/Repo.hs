@@ -102,8 +102,7 @@ import           Apotheca.Repo.Env
 import           Apotheca.Repo.Ignore
 import           Apotheca.Repo.Internal
 import           Apotheca.Repo.Manifest        (Manifest, emptyManifest,
-                                                readManifestFile,
-                                                writeManifestFile)
+                                                readManifest, writeManifest)
 import qualified Apotheca.Repo.Manifest        as Mf
 import           Apotheca.Repo.Path
 import           Apotheca.Security.Hash
@@ -171,9 +170,9 @@ openRepo e = do
   (Just rt) <- getRepoType $ repoDir e
   let e' = e { repoType = rt }
       dp = dataDir e'
-  c <- readConfigFile $ dp </> configName
-  m <- readManifestFile $ dp </> manifestName
-  i <- readIgnoreFile $ dp </> ignoreName
+  c <- readConfig $ dp </> configName
+  m <- readManifest $ dp </> manifestName
+  i <- readIgnore $ dp </> ignoreName
   return Repo
     { repoEnv = e'
     , repoConfig = c
@@ -183,9 +182,9 @@ openRepo e = do
 
 persistRepo :: Repo -> IO Repo
 persistRepo r = do
-    writeConfigFile (dp </> configName) c
-    writeManifestFile (dp </> manifestName) m
-    writeIgnoreFile (dp </> ignoreName) i
+    writeConfig (dp </> configName) c
+    writeManifest (dp </> manifestName) m
+    writeIgnore (dp </> ignoreName) i
     B.writeFile (dp </> distName) "DISTRIBUTED_PLACEHOLDER"
     return r
   where

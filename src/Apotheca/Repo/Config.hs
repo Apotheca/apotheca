@@ -1,7 +1,7 @@
 module Apotheca.Repo.Config
 ( Config (..)
 , defaultConfig
-, readConfigFile, writeConfigFile
+, readConfig, writeConfig
 -- Re-exports
 , WatchStrategy (..)
 ) where
@@ -22,7 +22,7 @@ import           Apotheca.Security.Cipher
 import           Apotheca.Security.Hash
 
 import           Apotheca.Logs
-import           Apotheca.Repo.Internal      (Config (..), SplitStrategy (..))
+import           Apotheca.Repo.Internal   (Config (..), SplitStrategy (..))
 
 
 
@@ -40,12 +40,12 @@ defaultConfig = Config
 
 configEncoding = YAMLFormat @> NoCompression
 
-readConfigFile :: FilePath -> IO Config
-readConfigFile p = do
+readConfig :: FilePath -> IO Config
+readConfig p = do
   mcfg <- decodeWithFile p configEncoding
   case mcfg of
     Just cfg -> return cfg
     Nothing -> error "Could not parse config."
 
-writeConfigFile :: FilePath -> Config -> IO ()
-writeConfigFile p = encodeWithFile p configEncoding
+writeConfig :: FilePath -> Config -> IO ()
+writeConfig p = encodeWithFile p configEncoding

@@ -10,7 +10,7 @@ import           System.Directory       (doesFileExist, removeFile)
 import           System.FilePath        ((</>))
 
 import           Apotheca.Bytes
-import           Apotheca.Repo.Internal    (Block (..), BlockHeader (..),
+import           Apotheca.Repo.Internal (Block (..), BlockHeader (..),
                                          BlockId (..), BlockType (..),
                                          SplitStrategy (..))
 import           Apotheca.Security.Hash
@@ -92,3 +92,6 @@ splitWith NoSplit = (: []) -- Surprise!
 
 -- Shorthand convenience
 sws = splitWith
+
+defaultSplitStrat ::SplitStrategy
+defaultSplitStrat = AdaptiveSplit (4096, 1048576) -- From 4kb to 1mb
