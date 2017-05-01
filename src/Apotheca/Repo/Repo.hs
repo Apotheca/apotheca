@@ -428,7 +428,8 @@ putDatum pf p b r = do
       , dataCipherHeader = Nothing
       , dataBlockHeaders = map fst pairs
       }
-    pairs = assignBlockHeaders r LocalBlock $ splitBlocks r b
+    blocks = splitBlocks r b
+    pairs = assignBlockHeaders r LocalBlock $ blocks
     storeLocalBlock :: (BlockHeader, Block) -> IO ()
     storeLocalBlock (bh, b) = storeBlock (dataPath r) bh b
     -- TODO: pre- vs post-encryption splitting
@@ -460,11 +461,11 @@ putHandle :: PutFlags -> Handle -> Path -> Repo -> IO Repo
 putHandle pf h p r = B.hGetContents h >>= flip (putDatum pf p) r
 
 
--- getFile :: FilePath -> Path -> Repo -> IO ()
--- getFile fp p r = withFile fp ReadMode $ \h -> getHandle h p r
---
--- putFile :: FilePath -> Path -> Repo -> IO Repo
--- putFile fp p r = withFile fp WriteMode $ \h -> putHandle h p r
+getFile :: GetFlags -> FilePath -> Path -> Repo -> IO ()
+getFile gf src dst r = withFile src ReadMode $ \h -> getHandle gf h dst r
+
+putFile :: PutFlags -> FilePath -> Path -> Repo -> IO Repo
+putFile pf src dst r = withFile src WriteMode $ \h -> putHandle pf h dst r
 
 
 
