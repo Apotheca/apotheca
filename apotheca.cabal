@@ -34,7 +34,7 @@ library
     , Apotheca.Repo.Manifest
     , Apotheca.Repo.Path
     , Apotheca.Repo.Repo
-    , Apotheca.Repo.Types
+    , Apotheca.Repo.Internal
     , Apotheca.Repo.Watcher
   -- other-modules:
   build-depends:

@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE FlexibleInstances #-}
 
-module Apotheca.Repo.Types where
+module Apotheca.Repo.Internal where
 
 import           GHC.Generics
 

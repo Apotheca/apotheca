@@ -10,7 +10,7 @@ import           System.Directory       (doesFileExist, removeFile)
 import           System.FilePath        ((</>))
 
 import           Apotheca.Bytes
-import           Apotheca.Repo.Types    (Block (..), BlockHeader (..),
+import           Apotheca.Repo.Internal    (Block (..), BlockHeader (..),
                                          BlockId (..), BlockType (..),
                                          SplitStrategy (..))
 import           Apotheca.Security.Hash

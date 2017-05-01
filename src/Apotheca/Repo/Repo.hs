@@ -99,12 +99,12 @@ import           Apotheca.Misc
 import           Apotheca.Repo.Blocks
 import           Apotheca.Repo.Config
 import           Apotheca.Repo.Ignore
+import           Apotheca.Repo.Internal
 import           Apotheca.Repo.Manifest        (Manifest, emptyManifest,
                                                 readManifestFile,
                                                 writeManifestFile)
 import qualified Apotheca.Repo.Manifest        as Mf
 import           Apotheca.Repo.Path
-import           Apotheca.Repo.Types
 import           Apotheca.Security.Hash
 
 

@@ -17,7 +17,7 @@ import           System.FSNotify
 
 import           Apotheca.Encodable
 import           Apotheca.Repo.Path
-import           Apotheca.Repo.Types (SyncMode (..), Transaction (..),
+import           Apotheca.Repo.Internal (SyncMode (..), Transaction (..),
                                       WatchStrategy (..))
 
 

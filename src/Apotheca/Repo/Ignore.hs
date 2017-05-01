@@ -7,13 +7,13 @@ module Apotheca.Repo.Ignore
 , doesIgnore
 ) where
 
-import qualified Data.ByteString.Char8 as BC
+import qualified Data.ByteString.Char8  as BC
 import           Data.Maybe
 
-import qualified System.FilePath.Glob  as G
+import qualified System.FilePath.Glob   as G
 
 import           Apotheca.Misc
-import           Apotheca.Repo.Types   (Ignore (..))
+import           Apotheca.Repo.Internal (Ignore (..))
 
 -- TODO: More complex globbing
 

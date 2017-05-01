@@ -23,7 +23,7 @@ import           Apotheca.Security.Cipher
 import           Apotheca.Security.Hash
 
 import           Apotheca.Logs
-import           Apotheca.Repo.Types      (Config (..), SplitStrategy (..))
+import           Apotheca.Repo.Internal      (Config (..), SplitStrategy (..))
 
 
 

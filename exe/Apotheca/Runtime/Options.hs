@@ -12,9 +12,9 @@ import qualified Data.ByteString           as B
 
 import           Apotheca.Encodable        (GzipCompression (..))
 import           Apotheca.Logs
+import           Apotheca.Repo.Internal
 import           Apotheca.Repo.Path
 import           Apotheca.Repo.Repo
-import           Apotheca.Repo.Types
 import           Apotheca.Security.Cipher
 import           Apotheca.Security.Hash
 

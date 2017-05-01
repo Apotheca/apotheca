@@ -7,7 +7,7 @@ module Apotheca.Repo.Path
 , parent
 ) where
 
-import           Apotheca.Repo.Types
+import           Apotheca.Repo.Internal
 import           System.FilePath
 
 
