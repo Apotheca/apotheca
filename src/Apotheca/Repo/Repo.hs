@@ -98,6 +98,7 @@ import           Apotheca.Logs
 import           Apotheca.Misc
 import           Apotheca.Repo.Blocks
 import           Apotheca.Repo.Config
+import           Apotheca.Repo.Env
 import           Apotheca.Repo.Ignore
 import           Apotheca.Repo.Internal
 import           Apotheca.Repo.Manifest        (Manifest, emptyManifest,
@@ -123,31 +124,9 @@ import           Apotheca.Security.Hash
 --  $/DISTRIBUTED -- Distributed repo / node config, optional)
 --  ./.apo -- A hidden FILE signifying a bare repo (otherwise is dir)
 
--- NOTE: This is all IO and context passing right now
---  Will promote it to a monad later, maybe (MonadIo m) => m a, or STM/TVar
---  STM/TVar is probably better because we can do the MonadIO on top
--- TODO: Manifest.hs is written nicely, this badly needs to be refactored to
---  match that quality and expressive power.
 
-defaultEnv = Env
-  { repoDir = "."
-  , repoType = HiddenRepo
-  , extDir = "." -- Made absolute elsewhere?
-  , intDir = []
-  , selManifest = Nothing
-  , dryRun = False
-  , magicSlash = True
-  , verbosity = Warn
-  }
-
-dataDir :: Env -> FilePath
-dataDir e = case repoType e of
-  BareRepo -> repoDir e
-  HiddenRepo -> repoDir e </> specialName
 
 dataPath = dataDir . repoEnv
-
-
 
 defaultRepo = Repo
   { repoEnv = defaultEnv
@@ -162,10 +141,6 @@ isBare :: Repo -> Bool
 isBare = (== BareRepo) . repoType . repoEnv
 
 -- Data paths
-
-specialName = ".apo" -- Change to .store (need to move vault first)
-manifestName = "MANIFEST"
-distName = "DISTRIBUTED"
 
 internalPath :: FilePath -> Repo -> FilePath
 internalPath p = (</> p) . dataPath
@@ -224,42 +199,6 @@ destroyRepo r = do
     exists <- doesRepoExist . repoDir . repoEnv $ r
     errorWhen "Cannot destroy repo: Repo does not exist." $ not exists
     removeDirectoryRecursive $ dataPath r
-
--- NOTE: findRepo makes a path absolute first before using pathAncestry
-findRepo :: FilePath -> IO (Maybe FilePath)
-findRepo p = do
-  ps <- pathAncestry <$> makeAbsolute p
-  ps' <- filterM doesRepoExist ps
-  if null ps'
-    then return Nothing
-    else return $ Just $ head ps'
-
-doesRepoExist :: FilePath -> IO Bool
-doesRepoExist p = isJust <$> getRepoType p
-
-doesBareRepoExist :: FilePath -> IO Bool
-doesBareRepoExist = doesFileExist . (</> specialName)
-
-doesHiddenRepoExist :: FilePath -> IO Bool
-doesHiddenRepoExist = doesDirectoryExist . (</> specialName)
-
-getRepoType :: FilePath -> IO (Maybe RepoType)
-getRepoType p = do
-  bre <- doesBareRepoExist p
-  hre <- doesHiddenRepoExist p
-  return $ case (bre, hre) of
-    (True, _) -> Just BareRepo
-    (_, True) -> Just HiddenRepo
-    _ -> Nothing -- Degenerate case, shouldn't happen
-
-checkRepoData :: FilePath -> IO Bool
-checkRepoData p = do
-  manExists <- doesFileExist $ p </> manifestName
-  cfgExists <- doesFileExist $ p </> configName
-  igExists <- doesFileExist $ p </> ignoreName
-  -- distributedFile is optional, non-required
-  dirExists <- mapM (doesDirectoryExist . (p </>)) blockDirs
-  return $ and $ [manExists,cfgExists,igExists] ++ dirExists
 
 
 
@@ -568,38 +507,6 @@ pullSync src dst r = undefined
 pullAdditive src dst r = undefined
 pullDeadDrop src dst r = undefined
 
-
-
--- IO helpers
-
--- NOTE: Does not include initial path - use pathAncestry for that
-pathAncestors :: FilePath -> [FilePath]
-pathAncestors = L.unfoldr f
-  where
-    f p =
-      let p' = takeDirectory p
-      in if p == p' then Nothing else Just (p', p')
-
--- NOTE: Does include initial path
-pathAncestry :: FilePath -> [FilePath]
-pathAncestry p = p : pathAncestors p
-
--- Should be called only on directories, errors otherwise
--- Returns a relative path, not just name
--- Does *NOT* return "." or ".." like getDirectoryContents
--- TODO: Rename getDirectoryPaths
-getDirectory :: FilePath -> IO [FilePath]
-getDirectory p = map (p </>) . filter stripSpecial <$> getDirectoryContents p
-  where stripSpecial a = a /= "." && a /= ".."
-
--- Ditto
-getDirectoryRecursive :: FilePath -> IO [FilePath]
-getDirectoryRecursive p = do
-  dc <- getDirectory p
-  dc's <- filterM doesDirectoryExist dc >>= mapM getDirectoryRecursive
-  return $ dc ++ concat dc's
-
-getPathModifyTime p = floor . utcTimeToPOSIXSeconds <$> getModificationTime p
 
 
 -- Globbing

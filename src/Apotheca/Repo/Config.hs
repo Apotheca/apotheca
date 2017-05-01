@@ -1,6 +1,5 @@
 module Apotheca.Repo.Config
 ( Config (..)
-, configName
 , defaultConfig
 , readConfigFile, writeConfigFile
 -- Re-exports
@@ -26,8 +25,6 @@ import           Apotheca.Logs
 import           Apotheca.Repo.Internal      (Config (..), SplitStrategy (..))
 
 
-
-configName = "CONFIG"
 
 defaultConfig :: Config
 defaultConfig = Config

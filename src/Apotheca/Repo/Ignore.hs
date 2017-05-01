@@ -1,7 +1,6 @@
 module Apotheca.Repo.Ignore
 ( Ignore (..)
 , ignore
-, ignoreName
 , readIgnoreFile, writeIgnoreFile
 , parseIgnore
 , doesIgnore
@@ -16,8 +15,6 @@ import           Apotheca.Misc
 import           Apotheca.Repo.Internal (Ignore (..))
 
 -- TODO: More complex globbing
-
-ignoreName = "IGNORE"
 
 ignore :: [String] -> Ignore
 ignore = map (\a -> (a, G.simplify $ G.compile a))
