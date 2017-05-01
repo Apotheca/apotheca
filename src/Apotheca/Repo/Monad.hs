@@ -1,8 +1,17 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Apotheca.Repo.Monad where
 
 import           Control.Monad.State.Lazy
 
+import           Data.ByteString          (ByteString)
+import qualified Data.ByteString          as B
+
+import           System.Directory
+import           System.FilePath
+
 import           Apotheca.Logs            (Verbosity (..), logM)
+import           Apotheca.Repo.Blocks
 import           Apotheca.Repo.Config
 import           Apotheca.Repo.Env
 import           Apotheca.Repo.Ignore
@@ -120,6 +129,99 @@ modifyManifest f = do
 
 queryManifest :: (Monad m) => (Manifest -> a) -> RM m a
 queryManifest f = f <$> getManifest
+
+
+
+-- Environment convenience
+
+isBare :: (Monad m) => RM m Bool
+isBare = (== BareRepo) . repoType <$> getEnv
+
+dataPath :: (Monad m) => RM m FilePath
+dataPath = queryEnv dataDir
+
+
+
+-- Repo create
+
+defaultRepo = Repo
+  { repoEnv = defaultEnv
+  , repoConfig = defaultConfig
+  , repoManifest = Mf.emptyManifest
+  , repoIgnore = ignore []
+  }
+
+newRepo e = defaultRepo { repoEnv = e }
+
+
+
+-- Repo management
+
+openOrCreateRepo :: Env -> IO Repo
+openOrCreateRepo e = do
+    exists <- doesRepoExist rp
+    if exists
+      then do
+        openRepo e
+      else createRepo e
+  where
+    rp = repoDir e
+
+-- This just sets up the repo directories - repo must still be persisted after.
+createRepo :: Env -> IO Repo
+createRepo e = do
+    -- TODO: Fix / warn on creating bare repo in a directory w/ existing contents
+    errorWhen (doesRepoExist rp) "Cannot create repo: Repo already exists."
+    --
+    createDirectoryIfMissing True dp
+    mapM_ (createDirectoryIfMissing True . (dp </>)) blockDirs
+    when bare $ B.writeFile (dp </> specialName) "BARE"
+    --
+    execRM persistRepo $ newRepo e
+  where
+    bare = repoType e == BareRepo
+    rp = repoDir e
+    dp = dataDir e
+
+-- NOTE: repoType will be overridden when opening a repo
+openRepo :: Env -> IO Repo
+openRepo e = do
+    -- Ensure exists
+    errorUnless (doesRepoExist rp) "Cannot open repo: Repo does not exist."
+    -- Fix repotype
+    (Just rt) <- getRepoType $ repoDir e
+    let e' = e { repoType = rt }
+        dp = dataDir e'
+    --
+    errorUnless (checkRepoData dp) "Cannot load repo: Missing files!"
+    c <- readConfig $ dp </> configName
+    m <- Mf.readManifest $ dp </> manifestName
+    i <- readIgnore $ dp </> ignoreName
+    --
+    return Repo
+      { repoEnv = e'
+      , repoConfig = c
+      , repoManifest = m
+      , repoIgnore = i
+      }
+  where
+    rp = repoDir e
+
+persistRepo :: RIO ()
+persistRepo = do
+    dp <- dataPath
+    getConfig >>= io . writeConfig (dp </> configName)
+    getManifest >>= io . Mf.writeManifest (dp </> manifestName)
+    selectRM repoIgnore >>= io . writeIgnore (dp </> ignoreName)
+    io $ B.writeFile (dp </> distName) "DISTRIBUTED_PLACEHOLDER"
+
+destroyRepo :: RIO ()
+destroyRepo = do
+  rp <- queryEnv repoDir
+  dp <- dataPath
+  exists <- io $ doesRepoExist rp
+  errorIf (not exists) "Cannot destroy repo: Repo does not exist."
+  io $ removeDirectoryRecursive dp
 
 
 
