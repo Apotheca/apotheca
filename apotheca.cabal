@@ -41,10 +41,11 @@ library
     -- Base
       base >= 4.7 && < 5
 
-    -- Data structures
+    -- Data structures / monads
     , bytestring
     , containers
     , mtl
+    , transformers
     , text
 
     -- Logging
