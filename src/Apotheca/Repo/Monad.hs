@@ -8,22 +8,33 @@ import           Apotheca.Repo.Internal
 
 -- Monad
 
-type RIO a = StateT Repo IO a
+type RM m a = StateT Repo m a
+type RIO a = RM IO a
 
-runRIO :: RIO a -> Repo -> IO (a, Repo)
-runRIO = runStateT
-evalRIO :: RIO a -> Repo -> IO a
-evalRIO = evalStateT
-execRIO :: RIO a -> Repo -> IO Repo
-execRIO = execStateT
-withRIO :: (Repo -> Repo) -> RIO a -> RIO a
-withRIO = withStateT
+runRM :: (Monad m) => RM m a -> Repo -> m (a, Repo)
+runRM = runStateT
+evalRM :: (Monad m) => RM m a -> Repo -> m a
+evalRM = evalStateT
+execRM :: (Monad m) => RM m a -> Repo -> m Repo
+execRM = execStateT
+withRM :: (Monad m) => (Repo -> Repo) -> RM m a -> RM m a
+withRM = withStateT
+mapRM :: (Monad m, Monad n) =>
+  (m (a, Repo) -> n (b, Repo)) -> StateT Repo m a -> StateT Repo n b
+mapRM = mapStateT
 
--- Later
--- type RepoM m a = StateT Repo m a
--- type RIO a = RepoM IO a
--- mapRepoM :: (m (a, Repo) -> n (b, Repo)) -> StateT Repo m a -> StateT Repo n b
--- mapRepoM = mapStateT
+getRM :: (Monad m) => RM m Repo
+getRM = get
+putRM :: (Monad m) => Repo -> RM m ()
+putRM = put
+modifyRM :: (Monad m) => (Repo -> Repo) -> RM m ()
+modifyRM = modify
+selectRM :: (Monad m) => (Repo -> a) -> RM m a
+selectRM = gets
+
+
+
+-- io lifter
 
 io :: IO a -> RIO a
 io = liftIO
@@ -33,8 +44,3 @@ printRIO = io . print
 
 
 
--- get :: Monad m => StateT s m s
--- put :: Monad m => s -> StateT s m ()
--- modify :: Monad m => (s -> s) -> StateT s m ()
--- modify' :: Monad m => (s -> s) -> StateT s m ()
--- gets :: Monad m => (s -> a) -> StateT s m a
