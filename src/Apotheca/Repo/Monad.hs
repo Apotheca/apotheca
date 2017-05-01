@@ -3,7 +3,11 @@ module Apotheca.Repo.Monad where
 import           Control.Monad.State.Lazy
 
 import           Apotheca.Logs            (Verbosity (..), logM)
+import           Apotheca.Repo.Config
+import           Apotheca.Repo.Env
+import           Apotheca.Repo.Ignore
 import           Apotheca.Repo.Internal
+import qualified Apotheca.Repo.Manifest   as Mf
 
 
 
@@ -68,6 +72,54 @@ errorIf b = when b . error
 errorWhen :: (Monad m) => m Bool -> String -> m ()
 errorWhen f e = f >>= flip errorIf e
 errorUnless f = errorWhen (not <$> f)
+
+
+
+-- Repo convenience
+
+getEnv :: (Monad m) => RM m Env
+getEnv = selectRM repoEnv
+
+getConfig :: (Monad m) => RM m Config
+getConfig = selectRM repoConfig
+
+getManifest :: (Monad m) => RM m Manifest
+getManifest = selectRM repoManifest
+
+getIgnore :: (Monad m) => RM m Ignore
+getIgnore = selectRM repoIgnore
+
+
+
+-- Env lifters
+
+modifyEnv :: (Monad m) => (Env -> Env) -> RM m ()
+modifyEnv f = do
+  r <- getRM
+  putRM $ r { repoEnv = f $ repoEnv r }
+
+queryEnv :: (Monad m) => (Env -> a) -> RM m a
+queryEnv f = f <$> getEnv
+
+-- Config lifters
+
+modifyConfig :: (Monad m) => (Config -> Config) -> RM m ()
+modifyConfig f = do
+  r <- getRM
+  putRM $ r { repoConfig = f $ repoConfig r }
+
+queryConfig :: (Monad m) => (Config -> a) -> RM m a
+queryConfig f = f <$> getConfig
+
+-- Manifest lifters
+
+modifyManifest :: (Monad m) => (Manifest -> Manifest) -> RM m ()
+modifyManifest f = do
+  r <- getRM
+  putRM $ r { repoManifest = f $ repoManifest r }
+
+queryManifest :: (Monad m) => (Manifest -> a) -> RM m a
+queryManifest f = f <$> getManifest
 
 
 
