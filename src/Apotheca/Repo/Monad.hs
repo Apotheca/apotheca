@@ -6,6 +6,7 @@ import           Control.Monad.State.Lazy
 
 import           Data.ByteString          (ByteString)
 import qualified Data.ByteString          as B
+import           Data.Maybe               
 
 import           System.Directory
 import           System.FilePath
@@ -223,6 +224,44 @@ destroyRepo = do
   errorIf (not exists) "Cannot destroy repo: Repo does not exist."
   io $ removeDirectoryRecursive dp
 
+
+
+-- Blocks
+
+-- TODO: (isLarge :: Bool, isRandomAccess :: Bool)
+
+getDefaultSplitStrategy :: (Monad m) => RM m SplitStrategy
+getDefaultSplitStrategy = queryConfig defaultSplit
+
+getLargeSplitStrategy :: (Monad m) => RM m (Maybe SplitStrategy)
+getLargeSplitStrategy = queryConfig largeSplit
+
+getLargeSplitLimit :: (Monad m) => RM m Int
+getLargeSplitLimit = queryConfig largeSplitLimit
+
+isLarge :: (Monad m) => ByteString -> RM m Bool
+isLarge bs = do
+    lsplit <- getLargeSplitStrategy
+    limit <- getLargeSplitLimit
+    return $ maybe False (const $ len > limit) lsplit
+  where len = B.length bs
+
+getSplitStrategy :: (Monad m) => ByteString -> RM m SplitStrategy
+getSplitStrategy bs = do
+  large <- isLarge bs
+  if large
+    then fromJust <$> getLargeSplitStrategy
+    else getDefaultSplitStrategy
+
+splitBlocks :: (Monad m) => ByteString -> RM m [Block]
+splitBlocks bs = do
+  s <- getSplitStrategy bs
+  return $ splitWith s bs
+
+assignBlockHeaders :: (Monad m) => BlockType -> [Block] -> RM m [(BlockHeader, Block)]
+assignBlockHeaders bt bs = do
+  bh <- queryConfig blockHash
+  return $ map (assignBlockHeader bh bt) bs
 
 
 
