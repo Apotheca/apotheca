@@ -2,6 +2,7 @@ module Apotheca.Repo.Monad where
 
 import           Control.Monad.State.Lazy
 
+import           Apotheca.Logs            (Verbosity (..), logM)
 import           Apotheca.Repo.Internal
 
 
@@ -39,8 +40,35 @@ selectRM = gets
 io :: IO a -> RIO a
 io = liftIO
 
-printRIO :: (Show a) => a -> RIO ()
-printRIO = io . print
+
+
+-- Logging
+
+getVerbosity :: (Monad m) => RM m Verbosity
+getVerbosity = verbosity <$> getEnv
+
+logRIO :: Verbosity -> String -> RIO ()
+logRIO v s = do
+  v' <- getVerbosity
+  logM v v' s
+
+debug = logRIO Debug
+verbose = logRIO Verbose
+terse = logRIO Terse
+warn = logRIO Warn
+fatal = logRIO Fatal
+
+
+
+-- Errors
+
+errorIf :: (Monad m) => Bool -> String -> m ()
+errorIf b = when b . error
+
+errorWhen :: (Monad m) => m Bool -> String -> m ()
+errorWhen f e = f >>= flip errorIf e
+errorUnless f = errorWhen (not <$> f)
+
 
 
 
