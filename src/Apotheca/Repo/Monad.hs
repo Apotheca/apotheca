@@ -18,6 +18,7 @@ import           Apotheca.Repo.Env
 import           Apotheca.Repo.Ignore
 import           Apotheca.Repo.Internal
 import qualified Apotheca.Repo.Manifest   as Mf
+import           Apotheca.Repo.Path
 
 
 
@@ -265,3 +266,42 @@ assignBlockHeaders bt bs = do
 
 
 
+-- Manifest convenience
+-- NOTE: create / write functions cause errors if a file / dir exists inappropriately
+
+-- Directory management
+
+-- NOTE: Creates entire dir path
+createManifestDirectory :: (Monad m) => Path -> RM m ()
+createManifestDirectory p = modifyManifest (Mf.createDirectoryIfMissing True p)
+
+readManifestDirectory :: (Monad m) => Path -> RM m [Path]
+readManifestDirectory = queryManifest . Mf.readDirectory
+readManifestDirectoryRecursive :: (Monad m) => Path -> RM m [Path]
+readManifestDirectoryRecursive = queryManifest . Mf.readDirectoryRecursive
+
+removeManifestDirectory :: (Monad m) => Path -> RM m ()
+removeManifestDirectory = modifyManifest . Mf.removeDirectoryRecursive
+
+-- File management
+
+-- NOTE: Always creates ancestor directories
+createManifestFile :: (Monad m) => Path -> FileHeader -> RM m ()
+createManifestFile p fh = do
+  createManifestDirectory (parent p)
+  modifyManifest (Mf.createFile p fh)
+
+readManifestFile :: (Monad m) => Path -> RM m FileHeader
+readManifestFile = queryManifest . Mf.readFile
+
+writeManifestFile :: (Monad m) => Path -> FileHeader -> RM m ()
+writeManifestFile p fh = modifyManifest (Mf.writeFile p fh)
+
+removeManifestFile :: (Monad m) => Path -> RM m ()
+removeManifestFile = modifyManifest . Mf.removeFile
+
+-- Generic
+
+removeManifestPath :: (Monad m) => Bool -> Path -> RM m ()
+removeManifestPath force = modifyManifest . f
+  where f = if force then Mf.removePathForcibly else Mf.removePath
