@@ -30,6 +30,7 @@ library
     -- , Apotheca.Repo
     , Apotheca.Repo.Blocks
     , Apotheca.Repo.Config
+    , Apotheca.Repo.Env
     , Apotheca.Repo.Ignore
     , Apotheca.Repo.Manifest
     , Apotheca.Repo.Path

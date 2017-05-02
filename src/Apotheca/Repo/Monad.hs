@@ -6,7 +6,7 @@ import           Control.Monad.State.Lazy
 
 import           Data.ByteString          (ByteString)
 import qualified Data.ByteString          as B
-import           Data.Maybe               
+import           Data.Maybe
 
 import           System.Directory
 import           System.FilePath
@@ -138,6 +138,9 @@ queryManifest f = f <$> getManifest
 
 isBare :: (Monad m) => RM m Bool
 isBare = (== BareRepo) . repoType <$> getEnv
+
+isMagicSlash :: (Monad m) => RM m Bool
+isMagicSlash = queryEnv magicSlash
 
 dataPath :: (Monad m) => RM m FilePath
 dataPath = queryEnv dataDir
@@ -300,8 +303,29 @@ writeManifestFile p fh = modifyManifest (Mf.writeFile p fh)
 removeManifestFile :: (Monad m) => Path -> RM m ()
 removeManifestFile = modifyManifest . Mf.removeFile
 
--- Generic
+-- Generic management
 
 removeManifestPath :: (Monad m) => Bool -> Path -> RM m ()
 removeManifestPath force = modifyManifest . f
   where f = if force then Mf.removePathForcibly else Mf.removePath
+
+
+
+-- Multiplexing
+
+-- Multiplexes on a trailing slash, external
+multiplexExt :: (FilePath -> RIO a) -> FilePath -> RIO [a]
+multiplexExt f p = do
+  isMagic <- isMagicSlash
+  if isMagic && hasTrailingPathSeparator p
+    then io (getDirectory p) >>= mapM f
+    else sequence [f p]
+
+-- Multiplex on internal paths, internal
+multiplexInt :: (Monad m) => (Path -> RM m a) -> FilePath -> RM m [a]
+multiplexInt f p = do
+    isMagic <- isMagicSlash
+    if isMagic && hasTrailingPathSeparator p
+      then readManifestDirectory p' >>= mapM f
+      else sequence [f p']
+  where p' = fromFilePath p
