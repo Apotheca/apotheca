@@ -201,13 +201,6 @@ destroyRepo r = do
 
 
 
--- Store object
-
--- blockType :: Repo -> Key -> BlockType
--- blockType _ _ = LocalBlock
-
-
-
 -- Helpers
 
 isLarge :: Repo -> ByteString -> Bool

@@ -29,7 +29,7 @@ data BlockType
   | CacheBlock
   | IncomingBlock
   | OutgoingBlock
-  deriving (Show, Read, Eq, Generic)
+  deriving (Show, Read, Eq, Ord, Generic)
 
 instance Serialize BlockType
 instance ToJSON BlockType
@@ -40,7 +40,7 @@ instance Encodable BlockType
 data BlockHeader = BlockHeader
   { blockId   :: BlockId  -- Is also block hash, which is a per-repo setting
   , blockType :: BlockType
-  } deriving (Show, Read, Eq, Generic)
+  } deriving (Show, Read, Eq, Ord, Generic)
 
 instance Serialize BlockHeader
 instance ToJSON BlockHeader
