@@ -4,12 +4,13 @@ module Apotheca.Repo.Manifest
 ( Manifest
 , emptyManifest
 , newManifest
-, newManifestIO
+-- , newManifestIO
+-- Manifest time
+-- , getManifestTime
+-- , setManifestTime
+-- , updateManifestTime
+-- , accessTime
 -- Time
-, getManifestTime
-, setManifestTime
-, updateManifestTime
-, accessTime
 , getTime
 , convertUTC
 -- File IO
@@ -116,7 +117,6 @@ newManifest t =  Manifest
     { topId = tid
     , entries = M.singleton tid top
     -- , blocks = [] -- No owned-blocks cache for now, can iter over entries
-    , manifestTime = t
     , ctr = tid + 1
     }
   where
@@ -124,25 +124,28 @@ newManifest t =  Manifest
     eh = accessTime t
     top = udirectory eh [] tid tid
 
-newManifestIO :: IO Manifest
-newManifestIO = newManifest <$> getManifestTime
-
-getManifestTime :: IO Int
-getManifestTime = getTime
-
-setManifestTime :: Int -> Manifest -> Manifest
-setManifestTime t m = m { manifestTime = t }
-
-updateManifestTime :: Manifest -> IO Manifest
-updateManifestTime m = do
-  t <- getManifestTime
-  return $ setManifestTime t m
+-- newManifestIO :: IO Manifest
+-- newManifestIO = newManifest <$> getTime
+--
+-- getManifestTime :: IO Int
+-- getManifestTime = getTime
+--
+-- setManifestTime :: Int -> Manifest -> Manifest
+-- setManifestTime t m = m { manifestTime = t }
+--
+-- updateManifestTime :: Manifest -> IO Manifest
+-- updateManifestTime m = do
+--   t <- getManifestTime
+--   return $ setManifestTime t m
 
 accessNow :: Manifest -> AccessHeader
-accessNow m = accessTime (manifestTime m)
+-- accessNow m = accessTime (manifestTime m)
+accessNow _ = accessTime 0
 
 accessTime :: Int -> AccessHeader
 accessTime t = AccessHeader { modifyTime = t }
+
+-- Time
 
 getTime :: IO Int
 getTime = convertUTC <$> getCurrentTime
@@ -475,6 +478,7 @@ readFile p m = if pathIsFile p m
     then fileHeader . fromJust $ find p m
     else isNotFileErr
 
+-- NOTE: The file must exist
 writeFile :: Path -> FileHeader -> Manifest -> Manifest
 writeFile p fh m = if pathIsFile p m
     then insert (e { contentHeader = FileContents fh }) m

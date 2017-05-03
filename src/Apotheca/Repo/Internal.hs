@@ -114,14 +114,14 @@ instance FromJSON (M.Map EntryId Entry) where
     return . M.fromList $ map (tagWith entryId) es
 
 data Manifest = Manifest
-  { topId        :: EntryId  -- Is always B.empty for now, can be manifestId later
+  { topId   :: EntryId  -- Is always B.empty for now, can be manifestId later
                             -- Is always a directory for now
                             -- Utility of inline or single-file manifests?
-  , entries      :: EntryMap
+  , entries :: EntryMap
   -- , blocks  :: [BlockId]  -- Cached list of all blocks owned by entries in
                               --  the manifest, for convenience
-  , manifestTime :: Int -- Used to inform AccessHeader of current time
-  , ctr          :: Integer -- Next available EntryId
+  -- , manifestTime :: Int -- Used to inform AccessHeader of current time
+  , ctr     :: Integer -- Next available EntryId
   } deriving (Show, Read, Generic)
 
 instance Serialize Manifest
