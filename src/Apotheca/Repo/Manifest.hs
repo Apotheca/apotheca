@@ -9,6 +9,9 @@ module Apotheca.Repo.Manifest
 , getManifestTime
 , setManifestTime
 , updateManifestTime
+, accessTime
+, getTime
+, convertUTC
 -- File IO
 , readManifest
 , writeManifest
@@ -124,7 +127,7 @@ newManifestIO :: IO Manifest
 newManifestIO = newManifest <$> getManifestTime
 
 getManifestTime :: IO Int
-getManifestTime = floor . utcTimeToPOSIXSeconds <$> getCurrentTime
+getManifestTime = getTime
 
 setManifestTime :: Int -> Manifest -> Manifest
 setManifestTime t m = m { manifestTime = t }
@@ -140,6 +143,11 @@ accessNow m = accessTime (manifestTime m)
 accessTime :: Int -> AccessHeader
 accessTime t = AccessHeader { modifyTime = t }
 
+getTime :: IO Int
+getTime = convertUTC <$> getCurrentTime
+
+convertUTC :: UTCTime -> Int
+convertUTC = floor . utcTimeToPOSIXSeconds
 
 -- Encoding
 
