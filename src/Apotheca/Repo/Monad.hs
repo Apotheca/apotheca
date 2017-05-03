@@ -11,6 +11,8 @@ import           Data.Maybe
 import           System.Directory
 import           System.FilePath
 
+import           Apotheca.Encodable       (GzipCompression (..), compress,
+                                           decompress)
 import           Apotheca.Logs            (Verbosity (..), logM)
 import           Apotheca.Repo.Blocks
 import           Apotheca.Repo.Config
@@ -19,6 +21,7 @@ import           Apotheca.Repo.Ignore
 import           Apotheca.Repo.Internal
 import qualified Apotheca.Repo.Manifest   as Mf
 import           Apotheca.Repo.Path
+import           Apotheca.Security.Hash
 
 
 
@@ -330,6 +333,78 @@ readManifestAccess :: (Monad m) => Path -> RM m AccessHeader
 readManifestAccess = queryManifest . Mf.readAccess
 
 
+
+-- Map-like
+-- NOTE: Paths must already be validated or an error may occur
+
+-- Read/write
+-- NOTE: These are all RIO instead of RM m because the blockstore isn't ready
+
+-- Datum (in-repo)
+
+accessDatum :: Path -> RIO AccessHeader
+accessDatum = readManifestAccess
+
+readDatum :: Path -> RIO ByteString
+readDatum p = do
+  bhs <- dataBlockHeaders <$> readManifestFile p
+  B.concat <$> mapM fetchLocalBlock bhs
+  where
+    fetchLocalBlock :: BlockHeader -> RIO Block
+    fetchLocalBlock bh = do
+      dp <- dataPath
+      io $ fromJust <$> fetchBlock dp bh
+
+writeDatum :: Path -> ByteString -> RIO ()
+writeDatum p b = do
+    -- Remove previous version if exists
+    exists <- queryManifest $ Mf.pathIsFile p
+    when exists $ removeDatum p
+    -- Transform datum
+    (fh, pairs) <- transformDatum b
+    -- Write blocks to disk
+    mapM_ storeLocalBlock pairs
+    -- Update manifest, return
+    createManifestFile p fh
+  where
+    storeLocalBlock :: (BlockHeader, Block) -> RIO ()
+    storeLocalBlock (bh, b) = do
+      dp <- dataPath
+      io $ storeBlock dp bh b
+
+-- TODO: pre- vs post-encryption splitting
+--  Encryption /before/ splitting == whole-file encryption
+--  Encryption /after/ splitting == per-block encryption
+--  This means that if per-block encryption is specified, the block split
+--  strategy should be ignored in favor of the encryption block split.
+--  This would require that CipherHeader use same-length lists instead of singles
+--  Eg: nonces :: [Nonce], digests :: Maybe [Digest]
+--  Unique nonces are essential when using per-block encryption
+transformDatum :: ByteString -> RIO (FileHeader, [(BlockHeader,Block)])
+transformDatum b = do
+    pairs <- splitBlocks b >>= assignBlockHeaders LocalBlock
+    return ( FileHeader
+        { dataSize = B.length b
+        , dataCompression = NoCompression
+        , dataHashHeader = Nothing
+        , dataCipherHeader = Nothing
+        , dataBlockHeaders = map fst pairs
+        }
+      , pairs
+      )
+
+removeDatum :: Path -> RIO ()
+removeDatum p = do
+    -- Remove blocks
+    bhs <- dataBlockHeaders <$> readManifestFile p
+    mapM_ deleteLocalBlock bhs
+    -- Update manifest, return
+    removeManifestFile p
+  where
+    deleteLocalBlock ::BlockHeader -> RIO ()
+    deleteLocalBlock bh = do
+      dp <- dataPath
+      io $ deleteBlock dp bh
 
 -- Multiplexing
 
