@@ -335,43 +335,80 @@ readManifestAccess = queryManifest . Mf.readAccess
 
 
 
+-- Compare headers
+
+type CHCompare = CompareHeader -> CompareHeader -> Bool
+
+data CompareHeader = CompareHeader
+  { chTime       :: Int
+  , chHashHeader :: Maybe HashHeader
+  } deriving (Show, Read, Eq)
+
+defaultCompareHeader = CompareHeader
+  { chTime = 0
+  , chHashHeader = Nothing
+  }
+
+compareTimeHeader :: Int -> CompareHeader
+compareTimeHeader t = defaultCompareHeader { chTime = t }
+
+compareHashHeader :: Maybe HashHeader -> CompareHeader
+compareHashHeader mh = defaultCompareHeader { chHashHeader = mh }
+
+compareHeader :: Int -> Maybe HashHeader -> CompareHeader
+compareHeader t mh = defaultCompareHeader
+  { chTime = t
+  , chHashHeader = mh
+  }
+
+-- True if sameness can be proven, false otherwise
+compareHeaders :: CompareHeader -> CompareHeader -> Bool
+compareHeaders a b = compareTimes a b && compareHashes a b
+
+compareHeadersWith :: (CompareHeader -> a) -> (a -> a -> Bool)
+  -> CompareHeader -> CompareHeader -> Bool
+compareHeadersWith s f a b = f (s a) (s b)
+
+compareTimes :: CompareHeader -> CompareHeader -> Bool
+compareTimes = compareHeadersWith chTime compareTime
+compareHashes :: CompareHeader -> CompareHeader -> Bool
+compareHashes = compareHeadersWith chHashHeader compareHash
+
+-- Returns true if timestamp is the same
+-- NOTE: This is NOT a > b - ie, 'recent'. If we did do it that way, rolled-back
+--  files with properly-dated timestamps would fail to update in the repo with via
+--  Update or Freshes.
+compareTime :: Int -> Int -> Bool
+compareTime a b = a /= b
+-- True if sameness can be proven
+compareHash :: Maybe HashHeader -> Maybe HashHeader -> Bool
+compareHash ma mb = isJust ma && maybe False (fromJust ma ==) mb
+
+
+
 -- Should-write convenience
 
--- NOTE: a = src, b = dst
--- NOTE: DatumComparison == (Int, Maybe Hashheader), but this function is not
---  reusable / extensible. The difficulty comes from metadata availability.
---  1) It is most efficient (space and time) to use the HashHeader for comparison
---  checking /before/ reading the file, but naturally...
---  2) not all srcs / dsts store all the required metadata - eg, files.
---  For now, we're inefficient (performing unnecessary reads or writes).
---  -- TODO: Later, split into 'light' metadata that doesn't require a read, and 'deep'
---  metadata that needs to consume the bytestring.
+shouldWrite :: WriteMode -> CompareHeader -> Maybe CompareHeader -> Bool
+shouldWrite = shouldWriteWith compareTimes compareHashes
 
--- NOTE: This is somewhat unrolled for a purpose. Yes, some ifs and the maybe could
---  be replaced with || or &&.
-shouldWrite :: WriteMode -> (Int, Maybe HashHeader) -> Maybe (Int, Maybe HashHeader) -> Bool
-shouldWrite wm a@(atime, mahash) mb = case wm of
-    Add -> isNothing mb -- Add if doesn't exist
-    Overwrite -> case mb of
-      Just (_, mbhash) -> if isJust mbhash
-        then maybe True (not . (fromJust mbhash ==)) mahash -- Overwrite unless both hashes exist and match
-        else True -- Always overwrite if dst-hash is unavailable
-      Nothing -> True -- Always overwrite if src-hash is unavailable
-    Update -> case mb of
-      Just (btime, _) -> if atime > btime
-        then fwd Overwrite -- Is more recent, fwd to overwrite
-        else False --
-      Nothing -> True -- Could be `fwd Add` if additional logic is added, but not right now
-    Freshen -> if isJust mb
-      then fwd Update -- Update if exists
-      else False -- Doesn't exist, don't update
+shouldWriteWith :: CHCompare -> CHCompare -> WriteMode -> CompareHeader -> Maybe CompareHeader -> Bool
+shouldWriteWith light heavy wm a mb = case wm of
+    Add -> isNothing mb
+    Overwrite -> maybe True (not . heavy a) mb
+    Update -> maybe (fwd Overwrite) (not . light a) mb
+    Freshen -> isJust mb && fwd Update
   where
-    fwd wm' = shouldWrite wm' a mb
+    b = fromJust mb
+    fwd wm' = shouldWriteWith light heavy wm' a mb
+
+-- TODO: shouldWriteWithRIO :: (RIO CHCompare) -> (RIO CHCompare) -> ... -> RIO Bool
 
 -- Convenience function for just timestamps, to use before hashing
 shouldWriteTime :: WriteMode -> Int -> Maybe Int -> Bool
-shouldWriteTime wm ta mtb = shouldWrite wm (ta, Nothing) mb
-  where mb = mtb >>= (\tb -> Just (tb, Nothing))
+shouldWriteTime wm ta mtb = shouldWrite wm a mb
+  where
+    a = compareTimeHeader ta
+    mb = mtb >>= Just . compareTimeHeader
 
 
 
