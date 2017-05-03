@@ -326,6 +326,9 @@ removeManifestPath :: (Monad m) => Bool -> Path -> RM m ()
 removeManifestPath force = modifyManifest . f
   where f = if force then Mf.removePathForcibly else Mf.removePath
 
+readManifestAccess :: (Monad m) => Path -> RM m AccessHeader
+readManifestAccess = queryManifest . Mf.readAccess
+
 
 
 -- Multiplexing

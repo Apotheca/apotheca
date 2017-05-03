@@ -33,6 +33,7 @@ module Apotheca.Repo.Manifest
 , readFile
 , writeFile
 , removeFile
+, readAccess
 -- Experimental
 , globDir
 -- TODO:
@@ -485,6 +486,9 @@ removeFile :: Path -> Manifest -> Manifest
 removeFile p m = if pathIsFile p m
   then removePathForcibly p m
   else isNotFileErr
+
+readAccess :: Path -> Manifest -> AccessHeader
+readAccess p m = accessHeader . fromJust $ find p m
 
 
 
