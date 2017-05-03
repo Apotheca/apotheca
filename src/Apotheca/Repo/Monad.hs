@@ -335,6 +335,46 @@ readManifestAccess = queryManifest . Mf.readAccess
 
 
 
+-- Should-write convenience
+
+-- NOTE: a = src, b = dst
+-- NOTE: DatumComparison == (Int, Maybe Hashheader), but this function is not
+--  reusable / extensible. The difficulty comes from metadata availability.
+--  1) It is most efficient (space and time) to use the HashHeader for comparison
+--  checking /before/ reading the file, but naturally...
+--  2) not all srcs / dsts store all the required metadata - eg, files.
+--  For now, we're inefficient (performing unnecessary reads or writes).
+--  -- TODO: Later, split into 'light' metadata that doesn't require a read, and 'deep'
+--  metadata that needs to consume the bytestring.
+
+-- NOTE: This is somewhat unrolled for a purpose. Yes, some ifs and the maybe could
+--  be replaced with || or &&.
+shouldWrite :: WriteMode -> (Int, Maybe HashHeader) -> Maybe (Int, Maybe HashHeader) -> Bool
+shouldWrite wm a@(atime, mahash) mb = case wm of
+    Add -> isNothing mb -- Add if doesn't exist
+    Overwrite -> case mb of
+      Just (_, mbhash) -> if isJust mbhash
+        then maybe True (not . (fromJust mbhash ==)) mahash -- Overwrite unless both hashes exist and match
+        else True -- Always overwrite if dst-hash is unavailable
+      Nothing -> True -- Always overwrite if src-hash is unavailable
+    Update -> case mb of
+      Just (btime, _) -> if atime > btime
+        then fwd Overwrite -- Is more recent, fwd to overwrite
+        else False --
+      Nothing -> True -- Could be `fwd Add` if additional logic is added, but not right now
+    Freshen -> if isJust mb
+      then fwd Update -- Update if exists
+      else False -- Doesn't exist, don't update
+  where
+    fwd wm' = shouldWrite wm' a mb
+
+-- Convenience function for just timestamps, to use before hashing
+shouldWriteTime :: WriteMode -> Int -> Maybe Int -> Bool
+shouldWriteTime wm ta mtb = shouldWrite wm (ta, Nothing) mb
+  where mb = mtb >>= (\tb -> Just (tb, Nothing))
+
+
+
 -- Map-like
 -- NOTE: Paths must already be validated or an error may occur
 
