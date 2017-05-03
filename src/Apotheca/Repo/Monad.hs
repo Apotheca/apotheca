@@ -421,6 +421,25 @@ writeHandle h bs = io $ B.hPut h bs
 removeHandle :: Handle -> RIO ()
 removeHandle _ = return ()
 
+-- File - IO
+
+accessExtFile :: FilePath -> RIO AccessHeader
+accessExtFile p = io $ Mf.accessTime . Mf.convertUTC <$> getModificationTime p
+
+readExtFile :: FilePath -> RIO ByteString
+readExtFile src = do
+  r <- getRM
+  io . withFile src ReadMode $ \h -> evalRM (readHandle h) r
+
+writeExtFile :: FilePath -> ByteString -> RIO ()
+writeExtFile dst bs = do
+  r <- getRM
+  io . withFile dst WriteMode $ \h -> evalRM (writeHandle h bs) r
+
+removeExtFile :: FilePath -> RIO ()
+removeExtFile p = io $ removeFile p
+
+
 -- Multiplexing
 
 -- Multiplexes on a trailing slash, external
