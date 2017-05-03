@@ -19,6 +19,7 @@ module Apotheca.Security.Cipher
 -- Nonce
 , makeNonce
 , getNonceIO
+, getStratNonceIO
 ) where
 
 import           GHC.Generics
@@ -231,3 +232,6 @@ makeNonce c n = forceLen (cipherNonceSize c) n
 
 getNonceIO :: Cipher -> IO Nonce
 getNonceIO c = getRandomBytesIO (cipherNonceSize c)
+
+getStratNonceIO :: CipherStrategy -> IO Nonce
+getStratNonceIO = getNonceIO . calgorithm
