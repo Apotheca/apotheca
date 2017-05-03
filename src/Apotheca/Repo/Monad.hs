@@ -45,8 +45,8 @@ putRM :: (Monad m) => Repo -> RM m ()
 putRM = put
 modifyRM :: (Monad m) => (Repo -> Repo) -> RM m ()
 modifyRM = modify
-selectRM :: (Monad m) => (Repo -> a) -> RM m a
-selectRM = gets
+queryRM :: (Monad m) => (Repo -> a) -> RM m a
+queryRM = gets
 
 
 
@@ -54,6 +54,9 @@ selectRM = gets
 
 io :: IO a -> RIO a
 io = liftIO
+
+unio :: RIO a -> RIO (IO a)
+unio rio = evalRM rio <$> getRM
 
 
 
@@ -89,16 +92,16 @@ errorUnless f = errorWhen (not <$> f)
 -- Repo convenience
 
 getEnv :: (Monad m) => RM m Env
-getEnv = selectRM repoEnv
+getEnv = queryRM repoEnv
 
 getConfig :: (Monad m) => RM m Config
-getConfig = selectRM repoConfig
+getConfig = queryRM repoConfig
 
 getManifest :: (Monad m) => RM m Manifest
-getManifest = selectRM repoManifest
+getManifest = queryRM repoManifest
 
 getIgnore :: (Monad m) => RM m Ignore
-getIgnore = selectRM repoIgnore
+getIgnore = queryRM repoIgnore
 
 
 
@@ -162,12 +165,26 @@ newRepo e = defaultRepo { repoEnv = e }
 
 -- Repo management
 
+-- Git implementation reference:
+--  https://hackage.haskell.org/package/gitlib-0.6.5
+
+-- File structure of repo data dir $ (is either ./ (bare) or ./.apo/ (hidden))
+--  $/local/ -- Local block storage; for non-distributed repo or owned blocks
+--  $/cache/  -- Blocks cached to speed up network
+--  $/incoming/ -- Blocks downloaded and awaiting use
+--  $/outgoing/ -- Blocks awaiting upload
+--  $/CONFIG  -- Local repo configuration
+--  $/MANIFEST -- Repo data contents - single manifest for now
+--    Maybe rename 'CONTENTS' if going with multiple-manifests-per-repo style
+--  $/DISTRIBUTED -- Distributed repo / node config, optional)
+--  $/IGNORE -- Ignore file
+--  ./.apo -- A hidden FILE signifying a bare repo (otherwise is dir)
+
 openOrCreateRepo :: Env -> IO Repo
 openOrCreateRepo e = do
     exists <- doesRepoExist rp
     if exists
-      then do
-        openRepo e
+      then openRepo e
       else createRepo e
   where
     rp = repoDir e
@@ -217,7 +234,7 @@ persistRepo = do
     dp <- dataPath
     getConfig >>= io . writeConfig (dp </> configName)
     getManifest >>= io . Mf.writeManifest (dp </> manifestName)
-    selectRM repoIgnore >>= io . writeIgnore (dp </> ignoreName)
+    queryRM repoIgnore >>= io . writeIgnore (dp </> ignoreName)
     io $ B.writeFile (dp </> distName) "DISTRIBUTED_PLACEHOLDER"
 
 destroyRepo :: RIO ()
@@ -321,7 +338,7 @@ multiplexExt f p = do
     then io (getDirectory p) >>= mapM f
     else sequence [f p]
 
--- Multiplex on internal paths, internal
+-- Multiplexes on a trailing slash, internal
 multiplexInt :: (Monad m) => (Path -> RM m a) -> FilePath -> RM m [a]
 multiplexInt f p = do
     isMagic <- isMagicSlash
