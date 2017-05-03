@@ -350,7 +350,8 @@ parseHashStrat mprefix = HashStrategy
 parseCipherStrat :: Parser CipherStrategy
 parseCipherStrat = CipherStrategy
     <$> option auto (long "cipher" <> metavar "CIPHER" <> help "Cipher algorithm.")
-    <*> switch (long "derive-key" <> help "Derive an appropriate key from the secret.")
+    -- <*> switch (long "derive-key" <> help "Derive an appropriate key from the secret.")
+    <*> pure True -- Force derived keys for now, until error checking is in place
     <*> optional (parseHashStrat $ Just "ct")
 
 parsePutFlags :: Parser PutFlags
