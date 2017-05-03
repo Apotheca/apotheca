@@ -10,6 +10,7 @@ import           Data.Maybe
 
 import           System.Directory
 import           System.FilePath
+import           System.IO                (Handle, IOMode (..), withFile)
 
 import           Apotheca.Encodable       (GzipCompression (..), compress,
                                            decompress)
@@ -405,6 +406,20 @@ removeDatum p = do
     deleteLocalBlock bh = do
       dp <- dataPath
       io $ deleteBlock dp bh
+
+-- Handle - IO
+
+accessHandle :: Handle -> RIO AccessHeader
+accessHandle _ = io $ Mf.accessTime <$> Mf.getTime
+
+readHandle :: Handle -> RIO ByteString
+readHandle = io . B.hGetContents
+
+writeHandle :: Handle -> ByteString -> RIO ()
+writeHandle h bs = io $ B.hPut h bs
+
+removeHandle :: Handle -> RIO ()
+removeHandle _ = return ()
 
 -- Multiplexing
 
