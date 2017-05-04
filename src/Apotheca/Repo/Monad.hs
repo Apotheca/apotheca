@@ -510,12 +510,16 @@ writeDatum wf p b = do
     exists <- queryManifest $ Mf.pathIsFile p
     when exists $ removeDatum p
     -- Transform datum
-    (fh, pairs) <- transformDatum (wfTransformFlags wf) b
+    (fh, pairs) <- transformDatum tf b
     -- Write blocks to disk
     mapM_ storeLocalBlock pairs
-    -- Update manifest, return
-    createManifestFile p fh
+    -- Apply hash, update manifest, return
+    createManifestFile p $ fh { fhHashHeader = mh }
+    modifyManifest . Mf.writeAccess p . Mf.timeAccess $ afModifyTime af
   where
+    af = wfAccessFlags wf
+    tf = wfTransformFlags wf
+    mh = flip hashHeaderWith b <$> afHashStrat af
     storeLocalBlock :: (BlockHeader, Block) -> RIO ()
     storeLocalBlock (bh, b) = do
       dp <- dataPath
