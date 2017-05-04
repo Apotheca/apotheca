@@ -744,6 +744,17 @@ delPath force dst = do
       removeManifestDirectory dst
     _ -> error "Del error: Target path does not exist."
 
+-- Handle convenience
+
+getHandle :: GetFlags -> Handle -> Path -> RIO ()
+getHandle _ h p = readDatum p >>= writeHandle h
+
+-- NOTE:This reads the datum from a handle, does not 'put into handle'
+putHandle :: PutFlags -> Handle -> Path -> RIO ()
+putHandle pf h p = do
+  t <- io $ Mf.getTime
+  readHandle h >>= writeDatum (convertPutFlags pf t) p
+
 -- Temporary helpers, bad form for now
 
 convertPutFlags :: PutFlags -> Int -> WriteFlags
