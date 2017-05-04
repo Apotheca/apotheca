@@ -230,7 +230,7 @@ data WriteMode
 
 data PutFlags = PutFlags
   { pfWriteMode   :: WriteMode
-  , pfTime        :: Maybe Int
+  -- , pfTime        :: Maybe Int
   , pfHashStrat   :: Maybe HashStrategy -- Plaintext checksum
   , pfCompression :: Maybe GzipCompression
   , pfCipherStrat :: Maybe CipherStrategy -- Ciphertext

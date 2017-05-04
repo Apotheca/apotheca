@@ -357,7 +357,7 @@ parseCipherStrat = CipherStrategy
 parsePutFlags :: Parser PutFlags
 parsePutFlags = PutFlags
   <$> parseWriteMode
-  <*> optional (option auto (long "mtime" <> metavar "TIME" <> help "Modification timestamp."))
+  -- <*> optional (option auto (long "mtime" <> metavar "TIME" <> help "Modification timestamp."))
   <*> optional (parseHashStrat Nothing)
   <*> optional parseGzipCompression
   <*> optional parseCipherStrat
