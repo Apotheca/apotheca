@@ -315,11 +315,16 @@ defaultCompareHeader = CompareHeader
   , chHashHeader = Nothing
   }
 
-compareTimeHeader :: Int -> CompareHeader
-compareTimeHeader t = defaultCompareHeader { chTime = t }
+timeCompareHeader :: Int -> CompareHeader
+timeCompareHeader t = defaultCompareHeader { chTime = t }
 
-compareHashHeader :: Maybe HashHeader -> CompareHeader
-compareHashHeader mh = defaultCompareHeader { chHashHeader = mh }
+hashCompareHeader :: Maybe HashHeader -> CompareHeader
+hashCompareHeader mh = defaultCompareHeader { chHashHeader = mh }
+
+deepenCompareHeader :: Maybe HashStrategy -> ByteString -> CompareHeader -> CompareHeader
+deepenCompareHeader mh bs ch = case mh of
+  Just h -> ch { chHashHeader = Just $ hashHeaderWith h bs }
+  Nothing -> ch
 
 compareHeader :: Int -> Maybe HashHeader -> CompareHeader
 compareHeader t mh = defaultCompareHeader
@@ -341,11 +346,11 @@ compareHashes :: CompareHeader -> CompareHeader -> Bool
 compareHashes = compareHeadersWith chHashHeader compareHash
 
 -- Returns true if timestamp is the same
--- NOTE: This is NOT a > b - ie, 'recent'. If we did do it that way, rolled-back
---  files with properly-dated timestamps would fail to update in the repo with via
+-- NOTE: Externally rolled-back files with properly-dated timestamps will fail to
+--  update the repo since their timestamps will be lower
 --  Update or Freshes.
 compareTime :: Int -> Int -> Bool
-compareTime a b = a /= b
+compareTime a b = a > b
 -- True if sameness can be proven
 compareHash :: Maybe HashHeader -> Maybe HashHeader -> Bool
 compareHash ma mb = isJust ma && maybe False (fromJust ma ==) mb
@@ -367,15 +372,26 @@ shouldWriteWith light deep wm a mb = case wm of
     b = fromJust mb
     fwd wm' = shouldWriteWith light deep wm' a mb
 
+shouldWriteFailureReason :: WriteMode -> String -> String
+shouldWriteFailureReason wm dst = case wm of
+  Add -> "Ignoring add: File already exists; use -o to overwrite: " ++ dst
+  Overwrite -> "Ignoring overwrite: Matching hash found:" ++ dst
+  Update -> "Ignoring update: Matching timestamp or hash found:" ++ dst
+  Freshen -> "Ignoring freshen: File does not exist; use -u to update:" ++ dst
+
 -- TODO: shouldWriteWithRIO :: (RIO CHCompare) -> (RIO CHCompare) -> ... -> RIO Bool
 
 -- Convenience function for just timestamps, to use before hashing
 shouldWriteTime :: WriteMode -> Int -> Maybe Int -> Bool
 shouldWriteTime wm ta mtb = shouldWrite wm a mb
   where
-    a = compareTimeHeader ta
-    mb = mtb >>= Just . compareTimeHeader
+    a = timeCompareHeader ta
+    mb = mtb >>= Just . timeCompareHeader
 
+whenWritable :: Bool -> WriteMode -> String -> RIO () -> RIO ()
+whenWritable writable wm dst act = if writable
+  then act
+  else verbose $ shouldWriteFailureReason wm dst
 
 
 -- Blocks
@@ -471,8 +487,11 @@ untransformDatum fh b = do
 
 -- Datum (in-repo)
 
-accessDatum :: Path -> RIO AccessHeader
-accessDatum = readManifestAccess
+datumCompareHeader :: Path -> RIO CompareHeader
+datumCompareHeader p = do
+  ac <- readManifestAccess p
+  fh <- readManifestFile p
+  return $ compareHeader (modifyTime ac) (fhHashHeader fh)
 
 readDatum :: Path -> RIO ByteString
 readDatum p = do
@@ -517,8 +536,10 @@ removeDatum p = do
 
 -- Handle - IO
 
-accessHandle :: Handle -> RIO AccessHeader
-accessHandle _ = io $ Mf.accessTime <$> Mf.getTime
+handleCompareHeader :: Handle -> RIO CompareHeader
+handleCompareHeader _ = do
+  t <- io Mf.getTime
+  return $ compareHeader t Nothing
 
 readHandle :: Handle -> RIO ByteString
 readHandle = io . B.hGetContents
@@ -531,8 +552,10 @@ removeHandle _ = return ()
 
 -- File - IO
 
-accessExtFile :: FilePath -> RIO AccessHeader
-accessExtFile p = io $ Mf.accessTime . Mf.convertUTC <$> getModificationTime p
+extFileCompareHeader :: FilePath -> RIO CompareHeader
+extFileCompareHeader p = do
+  t <- Mf.convertUTC <$> io (getModificationTime p)
+  return $ compareHeader t Nothing
 
 readExtFile :: FilePath -> RIO ByteString
 readExtFile src = do
