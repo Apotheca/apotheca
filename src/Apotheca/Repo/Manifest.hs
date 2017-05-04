@@ -9,7 +9,9 @@ module Apotheca.Repo.Manifest
 -- , getManifestTime
 -- , setManifestTime
 -- , updateManifestTime
--- , accessTime
+-- Access
+, defaultAccess
+, timeAccess
 -- Time
 , getTime
 , convertUTC
@@ -35,6 +37,7 @@ module Apotheca.Repo.Manifest
 , writeFile
 , removeFile
 , readAccess
+, writeAccess
 -- Experimental
 , globDir
 -- TODO:
@@ -121,7 +124,7 @@ newManifest t =  Manifest
     }
   where
     tid = 0
-    eh = accessTime t
+    eh = timeAccess t
     top = udirectory eh [] tid tid
 
 -- newManifestIO :: IO Manifest
@@ -138,12 +141,12 @@ newManifest t =  Manifest
 --   t <- getManifestTime
 --   return $ setManifestTime t m
 
-accessNow :: Manifest -> AccessHeader
--- accessNow m = accessTime (manifestTime m)
-accessNow _ = accessTime 0
+-- Access
 
-accessTime :: Int -> AccessHeader
-accessTime t = AccessHeader { modifyTime = t }
+defaultAccess = AccessHeader { modifyTime = 0 }
+
+timeAccess :: Int -> AccessHeader
+timeAccess t = AccessHeader { modifyTime = t }
 
 -- Time
 
@@ -429,7 +432,7 @@ removePathForcibly p m = if pathExists p m
     removeEntry = delete (entryId e) . unlinkParent e
 
 createDirectory :: Path -> Manifest -> Manifest
-createDirectory p m = createPath (udirectory (accessNow m) []) p m
+createDirectory p m = createPath (udirectory defaultAccess []) p m
 
 createDirectoryIfMissing :: Bool -> Path -> Manifest -> Manifest
 createDirectoryIfMissing _ [] m = m -- Reached root
@@ -471,7 +474,7 @@ removeDirectoryRecursive p m = if pathIsDirectory p m
   else isNotDirErr
 
 createFile :: Path -> FileHeader -> Manifest -> Manifest
-createFile p fh m = createPath (ufile (accessNow m) fh) p m
+createFile p fh m = createPath (ufile defaultAccess fh) p m
 
 readFile :: Path -> Manifest -> FileHeader
 readFile p m = if pathIsFile p m
@@ -493,6 +496,13 @@ removeFile p m = if pathIsFile p m
 
 readAccess :: Path -> Manifest -> AccessHeader
 readAccess p m = accessHeader . fromJust $ find p m
+
+writeAccess :: Path -> AccessHeader -> Manifest -> Manifest
+writeAccess p ah m = if pathExists p m
+    then insert (e { accessHeader = ah }) m
+    else pathNotExistErr
+  where
+    e = fromJust $ find p m
 
 
 

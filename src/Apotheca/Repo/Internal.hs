@@ -256,8 +256,8 @@ data WriteFlags = WriteFlags
   } deriving (Show, Read, Eq)
 
 data AccessFlags = AccessFlags
-  { afTime      :: Int
-  , afHashStrat :: Maybe HashStrategy -- Plaintext checksum
+  { afModifyTime :: Int
+  , afHashStrat  :: Maybe HashStrategy -- Plaintext checksum
   } deriving (Show, Read, Eq)
 
 data TransformFlags = TransformFlags
