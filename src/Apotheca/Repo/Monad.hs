@@ -558,18 +558,22 @@ extFileCompareHeader p = do
   t <- Mf.convertUTC <$> io (getModificationTime p)
   return $ compareHeader t Nothing
 
+-- NOTE: We use evalRM here because we know this doesn't change the repo's state
 readExtFile :: FilePath -> RIO ByteString
 readExtFile src = do
   r <- getRM
   io . withFile src ReadMode $ \h -> evalRM (readHandle h) r
 
-writeExtFile :: FilePath -> ByteString -> RIO ()
-writeExtFile dst bs = do
+-- NOTE: We use evalRM here because we know this doesn't change the repo's state
+writeExtFile :: WriteFlags -> FilePath -> ByteString -> RIO ()
+writeExtFile _ dst bs = do
   r <- getRM
   io . withFile dst WriteMode $ \h -> evalRM (writeHandle h bs) r
+  -- NOTE: Cannot set file time
 
 removeExtFile :: FilePath -> RIO ()
 removeExtFile p = io $ removeFile p
+
 
 
 -- Multiplexing
@@ -618,6 +622,108 @@ listPath rc dst = do
       then readManifestDirectoryRecursive
       else readManifestDirectory
 
+-- Compare light headers, maybe cancel >  ingest stream > compare deep headers, maybe cancel > transform > do the things
+-- putDatum :: (Monad m) => (a -> RM m ByteString) -> (b -> ByteString -> RM m ()) -> PutFlags -> a -> b -> RM m ()
+
+-- NOTE: In writeDatum, when pathIsFile we use existing hash to check equality
+--  Remember, only the existing hash is used for comparison headers. The passed-in
+--  hash strat is for the plaintext checksum, not for comparison - not until next write.
+--  This means that each writeFoo should take care of WriteMode/Flags + pre-existing entries.
+
+-- getPath - overwrite, recurse, src, dst, repo
+getPath :: GetFlags -> Bool -> Bool -> Path -> FilePath -> RIO ()
+getPath gf rp rc src dst = do
+    efexists <- io $ doesFileExist dst'
+    edexists <- io $ doesDirectoryExist dst'
+    isf <- queryManifest (Mf.pathIsFile src)
+    isd <- queryManifest (Mf.pathIsDirectory src)
+    case (isf, isd) of
+      (True,_) -> do -- File
+        when edexists $
+          error $ "Directory already exists at file target: " ++ dst'
+        -- Source compare header
+        chsrc <- datumCompareHeader src
+        -- Maybe destination compare header
+        mchdst <- if efexists
+          then Just <$> extFileCompareHeader dst'
+          else return Nothing
+        -- Light check, pre-read termination if possible
+        whenWritable (shouldWrite wm chsrc mchdst) wm dst' $ do
+          -- Read
+          debug $ "Getting: " ++ toFilePath src
+          bs <- readDatum src
+          -- NOTE: No deep check on extfiles for now
+          -- write
+          verbose $ "Writing file " ++ dst'
+          writeExtFile (convertGetFlags gf $ chTime chsrc) dst' bs
+      (_,True) -> do -- Directory
+          when efexists $
+            error $ "File already exists at directory target: " ++ dst'
+          if rp && edexists
+            then do
+              verbose $ "Replacing:" ++ dst'
+              io $ removeDirectoryRecursive dst'
+            else do
+              verbose $ "Getting: " ++ dst'
+          io $ createDirectoryIfMissing True dst'
+          readManifestDirectory src >>= filterM filterChild >>= mapM_ getChild
+      _ -> error "Get error: Source path does not exist."
+  where
+    wm = gfWriteMode gf
+    dst' = normalise $ dst </> takeFileName (toFilePath src)
+    getChild src' = getPath gf rp rc src' dst'
+    filterChild p = (rc ||) <$> queryManifest (Mf.pathIsFile p) -- if rc then true else doesFileExist
+
+-- putPath - overwrite files, replace dirs, recurse children, src, dst, repo
+putPath :: PutFlags -> Bool -> Bool -> FilePath -> Path -> RIO ()
+putPath pf rp rc src dst = do
+    efexists <- io $ doesFileExist src
+    edexists <- io $ doesDirectoryExist src
+    ifexists <- queryManifest (Mf.pathIsFile dst')
+    idexists <- queryManifest (Mf.pathIsDirectory dst')
+    case (efexists, edexists) of
+      (True,_) -> do -- File
+        when idexists $
+          error $ "Directory already exists at file target: " ++ toFilePath dst'
+        -- Source compare header
+        chsrc <- extFileCompareHeader src
+        -- Maybe destination compare header
+        mchdst <- if ifexists
+          then Just <$> datumCompareHeader dst'
+          else return Nothing
+        -- Light check, pre-read termination if possible
+        whenWritable (shouldWrite wm chsrc mchdst) wm (toFilePath dst') $ do
+          -- Read
+          debug $ "Reading file " ++ src
+          bs <- readExtFile src
+          let chdeep = deepenCompareHeader hs bs chsrc
+          -- Deep check, pre-write termination if possible
+          whenWritable (shouldWrite wm chdeep mchdst) wm (toFilePath dst') $ do
+              -- Write
+              verbose $ "Putting file: " ++ toFilePath dst'
+              writeDatum (convertPutFlags pf $ chTime chsrc) dst' bs
+      (_,True) -> do
+        when ifexists $
+          error $ "File already exists at directory target: " ++ toFilePath dst'
+        if rp && idexists
+          then do
+            verbose $ "Replacing:" ++ toFilePath dst'
+            delPath True dst'
+          else do
+            verbose $ "Putting dir: " ++ toFilePath dst'
+            createManifestDirectory dst'
+        -- The filterM strips child directories if non-recursive
+        io (getDirectory src) >>= filterM filterChild >>= mapM_ putChild
+      _ -> error "Put error: Source path does not exist."
+  where
+    wm = pfWriteMode pf
+    hs = pfHashStrat pf
+    -- Directory dst
+    dst' = fromFilePath . normalise $ (toFilePath dst) </> takeFileName src
+    putChild src' = putPath pf rp rc src' dst'
+    -- Filter files for recursive
+    filterChild p = (rc ||) <$> io (doesFileExist p) -- if rc then true else doesFileExist
+
 delPath :: Bool -> Path -> RIO ()
 delPath _ [] = error "Cannot delete root!"
 delPath force dst = do
@@ -638,3 +744,27 @@ delPath force dst = do
       removeManifestDirectory dst
     _ -> error "Del error: Target path does not exist."
 
+-- Temporary helpers, bad form for now
+
+convertPutFlags :: PutFlags -> Int -> WriteFlags
+convertPutFlags pf t = WriteFlags
+  { wfWriteMode = pfWriteMode pf
+  , wfAccessFlags = AccessFlags
+    { afModifyTime = t
+    , afHashStrat = pfHashStrat pf
+    }
+  , wfTransformFlags = TransformFlags
+    { tfCompression = pfCompression pf
+    , tfCipherStrat = pfCipherStrat pf
+    }
+  }
+
+convertGetFlags :: GetFlags -> Int -> WriteFlags
+convertGetFlags gf t = WriteFlags
+  { wfWriteMode = gfWriteMode gf
+  , wfAccessFlags = AccessFlags
+    { afModifyTime = t
+    , afHashStrat = undefined
+    }
+  , wfTransformFlags = undefined
+  }
