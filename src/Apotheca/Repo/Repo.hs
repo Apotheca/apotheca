@@ -289,7 +289,7 @@ removeFile = modifyManifest . Mf.removeFile
 getDatum :: GetFlags -> Path -> Repo -> IO ByteString
 getDatum gf p r = B.concat <$> mapM fetchLocalBlock bhs
   where
-    bhs = dataBlockHeaders $ readFile p r
+    bhs = fhBlockHeaders $ readFile p r
     fetchLocalBlock :: BlockHeader -> IO Block
     fetchLocalBlock = (fromJust <$>) . fetchBlock (dataPath r)
 
@@ -305,11 +305,11 @@ putDatum pf p b r = do
     return $ createFile p fh r'
   where
     fh = FileHeader
-      { dataSize = B.length b
-      , dataCompression = NoCompression
-      , dataHashHeader = Nothing
-      , dataCipherHeader = Nothing
-      , dataBlockHeaders = map fst pairs
+      { fhSize = B.length b
+      , fhCompression = NoCompression
+      , fhHashHeader = Nothing
+      , fhCipherHeader = Nothing
+      , fhBlockHeaders = map fst pairs
       }
     blocks = splitBlocks r b
     pairs = assignBlockHeaders r LocalBlock $ blocks
@@ -331,7 +331,7 @@ delDatum p r = do
     -- Update manifest, return
     return $ removeFile p r
   where
-    bhs = dataBlockHeaders $ readFile p r
+    bhs = fhBlockHeaders $ readFile p r
     deleteLocalBlock = deleteBlock (dataPath r)
 
 -- NOTE: This writes the datum to a handle, does not 'get a handle'

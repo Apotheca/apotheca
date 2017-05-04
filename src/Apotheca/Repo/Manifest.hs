@@ -337,7 +337,7 @@ fileHeader e = case contentHeader e of
 
 fileBlockHeaders :: Entry -> [BlockHeader]
 fileBlockHeaders e = case contentHeader e of
-  FileContents fh -> dataBlockHeaders fh
+  FileContents fh -> fhBlockHeaders fh
   _ -> isNotFileErr
 
 dirMap :: Entry -> DirMap

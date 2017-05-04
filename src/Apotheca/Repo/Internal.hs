@@ -170,11 +170,11 @@ instance FromJSON AccessHeader
 instance Encodable AccessHeader
 
 data FileHeader = FileHeader
-  { dataSize         :: Int
-  , dataCompression  :: GzipCompression
-  , dataHashHeader   :: Maybe HashHeader -- Plaintext checksum
-  , dataCipherHeader :: Maybe CipherHeader -- Ciphertext
-  , dataBlockHeaders :: [BlockHeader]
+  { fhSize         :: Int
+  , fhCompression  :: GzipCompression
+  , fhHashHeader   :: Maybe HashHeader -- Plaintext checksum; should this be in AccessHeader?
+  , fhCipherHeader :: Maybe CipherHeader -- Ciphertext
+  , fhBlockHeaders :: [BlockHeader]
   } deriving (Show, Read, Generic)
 
 instance Serialize FileHeader
@@ -244,6 +244,26 @@ data GetFlags = GetFlags
 -- data DelFlags = DelFlags
 --   { dfForce :: Bool
 --   } deriving (Show, Read, Eq)
+
+
+
+-- New Style?
+
+data WriteFlags = WriteFlags
+  { wfWriteMode      :: WriteMode
+  , wfAccessFlags    :: AccessFlags
+  , wfTransformFlags :: TransformFlags
+  } deriving (Show, Read, Eq)
+
+data AccessFlags = AccessFlags
+  { afTime      :: Int
+  , afHashStrat :: Maybe HashStrategy -- Plaintext checksum
+  } deriving (Show, Read, Eq)
+
+data TransformFlags = TransformFlags
+  { tfCompression :: Maybe GzipCompression
+  , tfCipherStrat :: Maybe CipherStrategy -- Ciphertext
+  } deriving (Show, Read, Eq)
 
 
 

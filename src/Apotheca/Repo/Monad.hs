@@ -6,6 +6,7 @@ import           Control.Monad.State.Lazy
 
 import           Data.ByteString          (ByteString)
 import qualified Data.ByteString          as B
+import           Data.Either
 import           Data.Maybe
 
 import           System.Directory
@@ -22,6 +23,7 @@ import           Apotheca.Repo.Ignore
 import           Apotheca.Repo.Internal
 import qualified Apotheca.Repo.Manifest   as Mf
 import           Apotheca.Repo.Path
+import           Apotheca.Security.Cipher
 import           Apotheca.Security.Hash
 
 
@@ -412,6 +414,53 @@ shouldWriteTime wm ta mtb = shouldWrite wm a mb
 
 
 
+-- Transform datum
+
+-- TODO: pre- vs post-encryption splitting
+--  Encryption /before/ splitting == whole-file encryption
+--  Encryption /after/ splitting == per-block encryption
+--  This means that if per-block encryption is specified, the block split
+--  strategy should be ignored in favor of the encryption block split.
+--  This would require that CipherHeader use same-length lists instead of singles
+--  Eg: nonces :: [Nonce], digests :: Maybe [Digest]
+--  Unique nonces are essential when using per-block encryption
+transformDatum :: TransformFlags -> ByteString -> RIO (FileHeader, [(BlockHeader,Block)])
+transformDatum tf b = do
+    -- compress
+    let b' = compress cprs b
+    -- encrypt
+    (b'', ch)  <- if isJust $ tfCipherStrat tf
+      then do
+        let cs = fromJust $ tfCipherStrat tf
+        nonce <- io $ getStratNonceIO cs
+        secret <- getSecret -- Tsk tsk
+        let Right (ch, ct) = encipherHeaderWith cs nonce secret b'
+        return (ct, Just ch)
+      else return (b', Nothing)
+    pairs <- splitBlocks b'' >>= assignBlockHeaders LocalBlock
+    return ( FileHeader
+        { fhSize = B.length b
+        , fhCompression = cprs
+        , fhHashHeader = Nothing
+        , fhCipherHeader = ch
+        , fhBlockHeaders = map fst pairs
+        }
+      , pairs
+      )
+  where
+    cprs = fromMaybe NoCompression $ tfCompression tf
+
+untransformDatum :: FileHeader -> ByteString -> RIO ByteString
+untransformDatum fh b = do
+    secret <- getSecret
+    let pt = case fhCipherHeader fh of
+          Just ch -> fromRight $ decipherHeaderWith ch secret b
+          Nothing -> b
+    return $ decompress (fhCompression fh) pt
+  where fromRight (Right r) = r
+
+
+
 -- Map-like
 -- NOTE: Paths must already be validated or an error may occur
 
@@ -425,21 +474,22 @@ accessDatum = readManifestAccess
 
 readDatum :: Path -> RIO ByteString
 readDatum p = do
-  bhs <- dataBlockHeaders <$> readManifestFile p
-  B.concat <$> mapM fetchLocalBlock bhs
+    fh <- readManifestFile p
+    bks <- mapM fetchLocalBlock $ fhBlockHeaders fh
+    untransformDatum fh $ B.concat bks
   where
     fetchLocalBlock :: BlockHeader -> RIO Block
     fetchLocalBlock bh = do
       dp <- dataPath
       io $ fromJust <$> fetchBlock dp bh
 
-writeDatum :: Path -> ByteString -> RIO ()
-writeDatum p b = do
+writeDatum :: WriteFlags -> Path -> ByteString -> RIO ()
+writeDatum wf p b = do
     -- Remove previous version if exists
     exists <- queryManifest $ Mf.pathIsFile p
     when exists $ removeDatum p
     -- Transform datum
-    (fh, pairs) <- transformDatum b
+    (fh, pairs) <- transformDatum (wfTransformFlags wf) b
     -- Write blocks to disk
     mapM_ storeLocalBlock pairs
     -- Update manifest, return
@@ -450,31 +500,10 @@ writeDatum p b = do
       dp <- dataPath
       io $ storeBlock dp bh b
 
--- TODO: pre- vs post-encryption splitting
---  Encryption /before/ splitting == whole-file encryption
---  Encryption /after/ splitting == per-block encryption
---  This means that if per-block encryption is specified, the block split
---  strategy should be ignored in favor of the encryption block split.
---  This would require that CipherHeader use same-length lists instead of singles
---  Eg: nonces :: [Nonce], digests :: Maybe [Digest]
---  Unique nonces are essential when using per-block encryption
-transformDatum :: ByteString -> RIO (FileHeader, [(BlockHeader,Block)])
-transformDatum b = do
-    pairs <- splitBlocks b >>= assignBlockHeaders LocalBlock
-    return ( FileHeader
-        { dataSize = B.length b
-        , dataCompression = NoCompression
-        , dataHashHeader = Nothing
-        , dataCipherHeader = Nothing
-        , dataBlockHeaders = map fst pairs
-        }
-      , pairs
-      )
-
 removeDatum :: Path -> RIO ()
 removeDatum p = do
     -- Remove blocks
-    bhs <- dataBlockHeaders <$> readManifestFile p
+    bhs <- fhBlockHeaders <$> readManifestFile p
     mapM_ deleteLocalBlock bhs
     -- Update manifest, return
     removeManifestFile p
@@ -535,3 +564,9 @@ multiplexInt f p = do
       then readManifestDirectory p' >>= mapM f
       else sequence [f p']
   where p' = fromFilePath p
+
+
+-- Temporary
+
+getSecret :: (Monad m) => RM m ByteString
+getSecret = return "cheese"
