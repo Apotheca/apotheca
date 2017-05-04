@@ -479,9 +479,6 @@ untransformDatum fh b = do
 
 
 
--- Map-like
--- NOTE: Paths must already be validated or an error may occur
-
 -- Read/write
 -- NOTE: These are all RIO instead of RM m because the blockstore isn't ready
 
@@ -595,7 +592,49 @@ multiplexInt f p = do
   where p' = fromFilePath p
 
 
--- Temporary
+
+-- Temporary static secret for testing
 
 getSecret :: (Monad m) => RM m ByteString
 getSecret = return "cheese"
+
+
+
+-- Map-like
+-- NOTE: Paths must already be validated or an error may occur
+
+listPath :: Bool -> Path -> RIO [Path]
+listPath rc dst = do
+    exists <- queryManifest (Mf.pathExists dst)
+    if exists
+      then do
+        isFile <- queryManifest (Mf.pathIsFile dst)
+        if isFile
+          then return [dst]
+          else readDir dst
+      else Mf.pathNotExistErr
+  where
+    readDir = if rc
+      then readManifestDirectoryRecursive
+      else readManifestDirectory
+
+delPath :: Bool -> Path -> RIO ()
+delPath _ [] = error "Cannot delete root!"
+delPath force dst = do
+  isf <- queryManifest (Mf.pathIsFile dst)
+  isd <- queryManifest (Mf.pathIsDirectory dst)
+  case (isf, isd) of
+    (True, _) -> do -- File
+      verbose $ "Deleting: " ++ toFilePath dst
+      removeDatum dst
+    (_, True) -> do -- Dir
+      children <- readManifestDirectory dst
+      let haschild = not $ null children
+      when haschild $ if force
+        then mapM_ (delPath force) children
+        else error "Cannot delete non-empty directory. Use -f to force deletion"
+      -- Delete self
+      verbose $ "Deleting: " ++ toFilePath dst
+      removeManifestDirectory dst
+    _ -> error "Del error: Target path does not exist."
+
