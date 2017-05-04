@@ -1,14 +1,13 @@
 module Apotheca.Runtime.Commands
 ( RuntimeCommand (..)
 , runCommand
-, multiplex
 ) where
 
 
 
-import           Control.Monad         (foldM, void, when)
+import           Control.Monad          (foldM, void, when)
 
-import qualified Data.ByteString.Char8 as BC
+import qualified Data.ByteString.Char8  as BC
 import           Data.Maybe
 
 import           System.Directory
@@ -17,11 +16,12 @@ import           System.FilePath
 import           System.IO
 
 import           Apotheca.Encodable
-import           Apotheca.Logs
+import qualified Apotheca.Logs          as Lg
 import           Apotheca.Repo.Config
-import           Apotheca.Repo.Path
-import           Apotheca.Repo.Repo
+import           Apotheca.Repo.Env
 import           Apotheca.Repo.Internal
+import           Apotheca.Repo.Monad
+import           Apotheca.Repo.Path
 
 
 
@@ -87,7 +87,7 @@ data RuntimeCommand
 --  lives in the env
 runCommand :: RuntimeCommand -> Env -> IO ()
 runCommand cmd e = do
-  debug v $ "Command was:" ++ show cmd
+  Lg.debug v $ "Command was:" ++ show cmd
   case cmd of
     -- Repo-less (env-only) commands
     New bare -> runNew bare e
@@ -96,12 +96,12 @@ runCommand cmd e = do
     Info -> runInfo e
     _ -> do
       r <- openRepo e
-      case cmd of
-        List rc t dst -> runList rc t (convertInt dst) r
-        Get gf rp rc src dst -> runGet gf rp rc (convertInt src) (convertExt dst) r
-        Put pf rp rc src dst -> runPut pf rp rc (convertExt src) (convertInt dst) r
-        Del force dst -> runDel force (convertInt dst) r
-        _ -> putStrLn "Unimplemented command!"
+      flip evalRM r $ case cmd of
+        List rc t dst -> runList rc t (convertInt dst)
+        Get gf rp rc src dst -> runGet gf rp rc (convertInt src) (convertExt dst)
+        Put pf rp rc src dst -> runPut pf rp rc (convertExt src) (convertInt dst)
+        Del force dst -> runDel force (convertInt dst)
+        _ -> io $ putStrLn "Unimplemented command!"
   where
     v = verbosity e
     -- Simplistic convert
@@ -119,27 +119,27 @@ runCommand cmd e = do
 -- Repo management commands
 
 runNew bare e = do
-    warn v $ "Attempting to create repo at: " ++ repoDir e
+    Lg.warn v $ "Attempting to create repo at: " ++ repoDir e
     void . createRepo $ e { repoType = if bare then BareRepo else HiddenRepo }
   where v = verbosity e
 
 runNuke force e = do
     r <- openRepo e
-    warn v $ "Attempting to destroy repo at: " ++ repoDir (repoEnv r)
+    Lg.warn v $ "Attempting to destroy repo at: " ++ repoDir (repoEnv r)
     confirmed <- if force
       then return True
       else promptYn "Confirm nuke?"
     if confirmed
       then do
-        warn v "Destroying repo..."
-        destroyRepo r
-      else warn v "Aborting nuke..."
+        Lg.warn v "Destroying repo..."
+        evalRM destroyRepo r
+      else Lg.warn v "Aborting nuke..."
   where v = verbosity e
 
 -- Query commands
 
 runWhere e = do
-    debug v $ "Looking for repo from: " ++ repoDir e
+    Lg.debug v $ "Looking for repo from: " ++ repoDir e
     mrd <- findRepo $ repoDir e
     case mrd of
       Just p -> putStrLn p
@@ -147,7 +147,7 @@ runWhere e = do
   where v = verbosity e
 
 runInfo e = do
-    debug v "Printing environment and repo info..."
+    Lg.debug v "Printing environment and repo info..."
     exists <- doesRepoExist $ repoDir e
     if exists
       then do
@@ -163,34 +163,36 @@ runInfo e = do
       else do
         putStrLn "Environment:"
         printPairs $ envPairs e
-  where v = verbosity e
+  where
+    v = verbosity e
+    isBare = (== BareRepo) . repoType . repoEnv
 
 -- Map-like
 
 -- NOTE: No multiplexing on the list
 -- TODO: Multiplex on magic slash /only/ if explicitly set?
-runList rc tree dst r = do
-    paths <- listPath rc (fromFilePath dst) r
-    mapM_ (putStrLn . tf) paths
+runList rc tree dst = do
+    paths <- listPath rc (fromFilePath dst)
+    io $ mapM_ (putStrLn . tf) paths
   where
     tf = if tree
       then error "--tree flag is not yet implemented"
       else toFilePath
 
 -- runPut ow rp rc src dst r = putPath ow rp rc src dst r >>= void . persistRepo
-runPut pf rp rc src dst r = if src == "-"
-    then putHandle pf stdin (fromFilePath dst) r >>= void . persistRepo
-    else multiplex f src r >>= void . persistRepo
+runPut pf rp rc src dst = if src == "-"
+    then putHandle pf stdin (fromFilePath dst) >> persistRepo
+    else multiplexExt f src >> persistRepo
   where f src' = putPath pf rp rc src' (fromFilePath dst)
 
 -- runGet ow rp rc src dst r = getPath ow rp rc src dst r >>= void . persistRepo
-runGet gf rp rc src dst r = if dst == "-"
-    then getHandle gf stdout (fromFilePath src) r
-    else multiplex' f src r >>= void . persistRepo
+runGet gf rp rc src dst = if dst == "-"
+    then getHandle gf stdout (fromFilePath src)
+    else void $ multiplexInt f src
   where f src' = getPath gf rp rc src' dst
 
 -- runDel force dst r = delPath force dst r >>= void . persistRepo
-runDel force dst r = multiplex' (delPath force) dst r >>= void . persistRepo
+runDel force dst = multiplexInt (delPath force) dst >> persistRepo
 
 
 

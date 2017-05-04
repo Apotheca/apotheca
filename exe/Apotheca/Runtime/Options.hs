@@ -13,8 +13,8 @@ import qualified Data.ByteString           as B
 import           Apotheca.Encodable        (GzipCompression (..))
 import           Apotheca.Logs
 import           Apotheca.Repo.Internal
+import           Apotheca.Repo.Monad
 import           Apotheca.Repo.Path
-import           Apotheca.Repo.Repo
 import           Apotheca.Security.Cipher
 import           Apotheca.Security.Hash
 
@@ -160,7 +160,7 @@ parseNuke = Nuke <$> parseForce "Force removal without confirmation, ignoring er
 
 parseList = List
   <$> parseRecurse "List directories recursively."
-  <*> parseTree "Print results as tree."
+  <*> pure False -- <*> parseTree "Print results as tree."
   <*> parseIntPath
 
 parseGet = Get
@@ -293,8 +293,7 @@ parseRecurse s = switch $
 
 parseTree :: String -> Parser Bool
 parseTree s = switch $
-  ( short 't'
-  <> long "tree"
+  ( long "tree"
   <> help s
   )
 

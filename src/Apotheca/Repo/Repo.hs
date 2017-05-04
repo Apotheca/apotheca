@@ -1,6 +1,16 @@
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
 
+{-
+
+WARNING!
+
+THIS FILE IS DEPRECATED, AND WILL BE REMOVED
+
+ANY REMAINING NEEDED EXISTING FUNCTIONALITY WILL BE MOVED ELSEWHERE
+
+-}
+
 module Apotheca.Repo.Repo
 ( Env (..)
 , defaultEnv
