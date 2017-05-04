@@ -141,7 +141,7 @@ hasBlockM bh bs = do
 
 
 
--- File blockstore
+-- Experimental blockstores
 
 type MemBlockStore = BlockStore Identity (M.Map BlockHeader Block)
 

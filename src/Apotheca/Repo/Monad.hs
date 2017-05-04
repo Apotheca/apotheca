@@ -253,45 +253,6 @@ destroyRepo = do
 
 
 
--- Blocks
-
--- TODO: (isLarge :: Bool, isRandomAccess :: Bool)
-
-getDefaultSplitStrategy :: (Monad m) => RM m SplitStrategy
-getDefaultSplitStrategy = queryConfig defaultSplit
-
-getLargeSplitStrategy :: (Monad m) => RM m (Maybe SplitStrategy)
-getLargeSplitStrategy = queryConfig largeSplit
-
-getLargeSplitLimit :: (Monad m) => RM m Int
-getLargeSplitLimit = queryConfig largeSplitLimit
-
-isLarge :: (Monad m) => ByteString -> RM m Bool
-isLarge bs = do
-    lsplit <- getLargeSplitStrategy
-    limit <- getLargeSplitLimit
-    return $ maybe False (const $ len > limit) lsplit
-  where len = B.length bs
-
-getSplitStrategy :: (Monad m) => ByteString -> RM m SplitStrategy
-getSplitStrategy bs = do
-  large <- isLarge bs
-  if large
-    then fromJust <$> getLargeSplitStrategy
-    else getDefaultSplitStrategy
-
-splitBlocks :: (Monad m) => ByteString -> RM m [Block]
-splitBlocks bs = do
-  s <- getSplitStrategy bs
-  return $ splitWith s bs
-
-assignBlockHeaders :: (Monad m) => BlockType -> [Block] -> RM m [(BlockHeader, Block)]
-assignBlockHeaders bt bs = do
-  bh <- queryConfig blockHash
-  return $ map (assignBlockHeader bh bt) bs
-
-
-
 -- Manifest convenience
 -- NOTE: create / write functions cause errors if a file / dir exists inappropriately
 
@@ -394,14 +355,14 @@ shouldWrite :: WriteMode -> CompareHeader -> Maybe CompareHeader -> Bool
 shouldWrite = shouldWriteWith compareTimes compareHashes
 
 shouldWriteWith :: CHCompare -> CHCompare -> WriteMode -> CompareHeader -> Maybe CompareHeader -> Bool
-shouldWriteWith light heavy wm a mb = case wm of
+shouldWriteWith light deep wm a mb = case wm of
     Add -> isNothing mb
-    Overwrite -> maybe True (not . heavy a) mb
+    Overwrite -> maybe True (not . deep a) mb
     Update -> maybe (fwd Overwrite) (not . light a) mb
     Freshen -> isJust mb && fwd Update
   where
     b = fromJust mb
-    fwd wm' = shouldWriteWith light heavy wm' a mb
+    fwd wm' = shouldWriteWith light deep wm' a mb
 
 -- TODO: shouldWriteWithRIO :: (RIO CHCompare) -> (RIO CHCompare) -> ... -> RIO Bool
 
@@ -411,6 +372,44 @@ shouldWriteTime wm ta mtb = shouldWrite wm a mb
   where
     a = compareTimeHeader ta
     mb = mtb >>= Just . compareTimeHeader
+
+
+
+-- Blocks
+-- TODO: (isLarge :: Bool, isRandomAccess :: Bool)
+
+getDefaultSplitStrategy :: (Monad m) => RM m SplitStrategy
+getDefaultSplitStrategy = queryConfig defaultSplit
+
+getLargeSplitStrategy :: (Monad m) => RM m (Maybe SplitStrategy)
+getLargeSplitStrategy = queryConfig largeSplit
+
+getLargeSplitLimit :: (Monad m) => RM m Int
+getLargeSplitLimit = queryConfig largeSplitLimit
+
+isLarge :: (Monad m) => ByteString -> RM m Bool
+isLarge bs = do
+    lsplit <- getLargeSplitStrategy
+    limit <- getLargeSplitLimit
+    return $ maybe False (const $ len > limit) lsplit
+  where len = B.length bs
+
+getSplitStrategy :: (Monad m) => ByteString -> RM m SplitStrategy
+getSplitStrategy bs = do
+  large <- isLarge bs
+  if large
+    then fromJust <$> getLargeSplitStrategy
+    else getDefaultSplitStrategy
+
+splitBlocks :: (Monad m) => ByteString -> RM m [Block]
+splitBlocks bs = do
+  s <- getSplitStrategy bs
+  return $ splitWith s bs
+
+assignBlockHeaders :: (Monad m) => BlockType -> [Block] -> RM m [(BlockHeader, Block)]
+assignBlockHeaders bt bs = do
+  bh <- queryConfig blockHash
+  return $ map (assignBlockHeader bh bt) bs
 
 
 

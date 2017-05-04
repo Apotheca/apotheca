@@ -121,6 +121,7 @@ import           Apotheca.Security.Hash
 --  $/MANIFEST -- Repo data contents - single manifest for now
 --    Maybe rename 'CONTENTS' if going with multiple-manifests-per-repo style
 --  $/DISTRIBUTED -- Distributed repo / node config, optional)
+--  $/IGNORE -- Ignore file
 --  ./.apo -- A hidden FILE signifying a bare repo (otherwise is dir)
 
 
