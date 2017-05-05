@@ -345,12 +345,11 @@ compareTimes = compareHeadersWith chTime compareTime
 compareHashes :: CompareHeader -> CompareHeader -> Bool
 compareHashes = compareHeadersWith chHashHeader compareHash
 
--- Returns true if timestamp is the same
 -- NOTE: Externally rolled-back files with properly-dated timestamps will fail to
 --  update the repo since their timestamps will be lower
 --  Update or Freshes.
 compareTime :: Int -> Int -> Bool
-compareTime a b = a > b
+compareTime a b = a <= b
 -- True if sameness can be proven
 compareHash :: Maybe HashHeader -> Maybe HashHeader -> Bool
 compareHash ma mb = isJust ma && maybe False (fromJust ma ==) mb
