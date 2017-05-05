@@ -119,14 +119,14 @@ parseCommand = subparser
   <> subcmd "put" "Put a file into a store." parsePut
   <> subcmd "del" "Delete a file from a store." parseDel
   -- Sync
-  <> subcmd "push" "Pushes a path into a store." parsePush
-  <> subcmd "pull" "Pulls a path from a store." parsePull
+  -- <> subcmd "push" "Pushes a path into a store." parsePush
+  -- <> subcmd "pull" "Pulls a path from a store." parsePull
   -- <> subcmd "transfer" "Transfers a path between stores." parseTransfer
   -- Watch
-  <> subcmd "watch" "Adds a directory to the watchlist." parseWatch
-  <> subcmd "unwatch" "Removes a directory from the watchlist." parseUnwatch
+  -- <> subcmd "watch" "Adds a directory to the watchlist." parseWatch
+  -- <> subcmd "unwatch" "Removes a directory from the watchlist." parseUnwatch
   -- Node
-  <> subcmd "run" "Run a distributed node." parseRunNode
+  -- <> subcmd "run" "Run a distributed node." parseRunNode
   -- Non-repo commands
   <> subcmd "version" "Print version info." (pure Version)
   ) <|> pure NoCommand
@@ -190,12 +190,14 @@ parseDel = Del
 
 -- Sync strategies
 
+parsePush :: Parser RuntimeCommand
 parsePush = SyncPush
   <$> parseSyncMode
   <*> parseGlob
   <*> parseExtPath
   <*> parseIntPath
 
+parsePull :: Parser RuntimeCommand
 parsePull = SyncPull
   <$> parseSyncMode
   <*> parseGlob
@@ -209,14 +211,16 @@ parsePull = SyncPull
 
 -- Watch
 
+parseWatch :: Parser RuntimeCommand
 parseWatch = pure Watch
 
+parseUnwatch :: Parser RuntimeCommand
 parseUnwatch = pure Unwatch
 
 
 
 -- Run
-
+parseRunNode :: Parser RuntimeCommand
 parseRunNode = pure RunNode
 
 

@@ -54,6 +54,7 @@ data RuntimeCommand
   | Nuke Bool
   -- Query
   | Where
+  -- TODO: | Open -- basically apo where | xargs open in shell
   | Info
   -- | Find -- Something smarter than 'list'
   -- Map-like
