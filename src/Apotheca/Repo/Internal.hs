@@ -334,3 +334,20 @@ data Repo = Repo
   -- or
   -- , repoBlockStore :: a -- A (potentially flushable) blockstore
   } deriving (Show, Read)
+
+
+
+-- Inherited values
+
+data Inherited a
+  = Explicit a
+  | Inherit
+  deriving (Show, Read, Eq)
+
+inherit :: a -> Inherited a -> a
+inherit _ (Explicit b) = b
+inherit a Inherit = a
+
+inheritFrom :: (a -> b) -> a -> Inherited b -> b
+inheritFrom _ _ (Explicit b) = b
+inheritFrom f a Inherit = f a
