@@ -51,22 +51,17 @@ buildEnv opts = do
     verbose v "Building environment..."
     -- cwd <- getCurrentDirectory
     cwd <- getCurrentDirectory >>= fixPath
-    debug v $ "Cwd is: " ++ cwd
     --
     -- sd <- buildStoreDir opts cwd
     sd <- buildStoreDir opts cwd >>= fixPath
-    debug v $ "STOREDIR set: " ++ sd
     --
     -- let ewd = fromMaybe cwd $ optExtDir opts
     ewd <- fixPath . fromMaybe cwd $ optExtDir opts
-    debug v $ "EXTDIR set: " ++ ewd
     --
     iwd <- case optIntDir opts of
       Just i -> return i
       Nothing -> buildIntDir opts sd ewd
-    debug v $ "INTDIR set: " ++ toFilePath iwd
     -- Done
-    verbose v "Environment constructed!"
     return defaultEnv
       { repoDir = sd
       , extDir = ewd
@@ -88,19 +83,16 @@ buildEnv opts = do
 
 buildStoreDir :: RuntimeOptions -> FilePath -> IO FilePath
 buildStoreDir opts cwd = do
-    verbose v "Finding store dir..."
     case optSearchDir opts of
       Just sd -> do
         exists <- doesRepoExist sd
-        debug v $ "Specified STOREDIR: " ++ sd
-        debug v $ "Exists? " ++ show exists
         return sd
       Nothing -> do
-        debug v "Unspecified STOREDIR, searching upwards..."
+        verbose v "Finding repo..."
         fr <- findRepo cwd
         case fr of
-          Just fr' -> debug v $ "Found STOREDIR: " ++ show fr'
-          Nothing -> debug v "STOREDIR not found; defaulting to cwd"
+          Just fr' -> debug v $ "Found repo: " ++ show fr'
+          Nothing -> debug v "Repo not found (defaulting to cwd)."
         return $ fromMaybe cwd fr
   where
     v = getVerb opts
@@ -109,17 +101,16 @@ buildStoreDir opts cwd = do
 -- TODO: Warn users about needing explicit INTDIR if STOREDIR or EXTDIR contain ".."
 buildIntDir :: RuntimeOptions -> FilePath -> FilePath -> IO Path
 buildIntDir opts sd ewd = do
-  verbose v "Applying magic..."
   needsMagic <- doesHiddenRepoExist sd
   case (needsMagic, i == ewd) of
     (True, False) -> do
-      debug v $ "Applied INTDIR magic: " ++ toFilePath iwd
+      debug v $ "Applied INTDIR path magic: " ++ toFilePath iwd
       return iwd
     (True, True) -> do
-      debug v "Magic cancelled - not within repo."
+      debug v "Path magic cancelled - not within repo."
       return []
     _ -> do
-      debug v "Magic cancelled - no repo found."
+      debug v "Path magic cancelled - no repo found."
       return []
   where
     v = getVerb opts
