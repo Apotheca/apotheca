@@ -127,4 +127,4 @@ buildIntDir opts sd ewd = do
     iwd = fromFilePath i
 
 getVerb :: RuntimeOptions -> Verbosity
-getVerb = fromMaybe Warn . optVerbosity
+getVerb = fromMaybe Terse . optVerbosity

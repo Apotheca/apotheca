@@ -88,7 +88,6 @@ data RuntimeCommand
 --  lives in the env
 runCommand :: RuntimeCommand -> Env -> IO ()
 runCommand cmd e = do
-  Lg.debug v $ "Command was:" ++ show cmd
   case cmd of
     -- Repo-less (env-only) commands
     New bare -> runNew bare e
@@ -120,27 +119,27 @@ runCommand cmd e = do
 -- Repo management commands
 
 runNew bare e = do
-    Lg.warn v $ "Attempting to create repo at: " ++ repoDir e
+    Lg.terse v $ "Attempting to create repo at: " ++ repoDir e
     void . createRepo $ e { repoType = if bare then BareRepo else HiddenRepo }
   where v = verbosity e
 
 runNuke force e = do
     r <- openRepo e
-    Lg.warn v $ "Attempting to destroy repo at: " ++ repoDir (repoEnv r)
+    Lg.terse v $ "Attempting to destroy repo at: " ++ repoDir (repoEnv r)
     confirmed <- if force
       then return True
       else promptYn "Confirm nuke?"
     if confirmed
       then do
-        Lg.warn v "Destroying repo..."
+        Lg.terse v "Destroying repo..."
         evalRM destroyRepo r
-      else Lg.warn v "Aborting nuke..."
+      else Lg.terse v "Aborting nuke..."
   where v = verbosity e
 
 -- Query commands
 
 runWhere e = do
-    Lg.debug v $ "Looking for repo from: " ++ repoDir e
+    Lg.verbose v $ "Looking for repo from: " ++ repoDir e
     mrd <- findRepo $ repoDir e
     case mrd of
       Just p -> putStrLn p

@@ -238,6 +238,7 @@ openRepo e = do
 persistRepo :: RIO ()
 persistRepo = do
     dp <- dataPath
+    verbose "Persisting repo..."
     getConfig >>= io . writeConfig (dp </> configName)
     getManifest >>= io . Mf.writeManifest (dp </> manifestName)
     queryRM repoIgnore >>= io . writeIgnore (dp </> ignoreName)
@@ -248,6 +249,7 @@ destroyRepo = do
   rp <- queryEnv repoDir
   dp <- dataPath
   exists <- io $ doesRepoExist rp
+  verbose "Destroying repo..."
   errorIf (not exists) "Cannot destroy repo: Repo does not exist."
   io $ removeDirectoryRecursive dp
 
@@ -461,13 +463,18 @@ assignBlockHeaders bt bs = do
 transformDatum :: TransformFlags -> ByteString -> RIO (FileHeader, [(BlockHeader,Block)])
 transformDatum tf b = do
     -- compress
-    let b' = compress cprs b
+    b' <- case tfCompression tf of
+      Just cprs -> do
+        verbose $ "Compressing with: " ++ show cprs
+        return $ compress cprs b
+      Nothing -> return b
     -- encrypt
     (b'', ch)  <- if isJust $ tfCipherStrat tf
       then do
         let cs = fromJust $ tfCipherStrat tf
         nonce <- io $ getStratNonceIO cs
         secret <- getSecret -- Tsk tsk
+        verbose $ "Encrypting with: " ++ show (calgorithm cs)
         let Right (ch, ct) = encipherHeaderWith cs nonce secret b'
         return (ct, Just ch)
       else return (b', Nothing)
@@ -475,7 +482,7 @@ transformDatum tf b = do
     return ( FileHeader
         { fhSize = B.length b
         , fhCompression = cprs
-        , fhHashHeader = Nothing
+        , fhHashHeader = Nothing  -- NOTE: assigned in writeDatum after transforming
         , fhCipherHeader = ch
         , fhBlockHeaders = map fst pairs
         }
@@ -487,9 +494,11 @@ transformDatum tf b = do
 untransformDatum :: FileHeader -> ByteString -> RIO ByteString
 untransformDatum fh b = do
     secret <- getSecret
+    verbose "Decrypting..."
     let pt = case fhCipherHeader fh of
           Just ch -> fromRight $ decipherHeaderWith ch secret b
           Nothing -> b
+    verbose "Decompressing..."
     return $ decompress (fhCompression fh) pt
   where fromRight (Right r) = r
 
@@ -508,23 +517,28 @@ datumCompareHeader p = do
 
 readDatum :: Path -> RIO ByteString
 readDatum p = do
+    verbose $ "Reading datum: " ++ toFilePath p
     fh <- readManifestFile p
+    verbose $ "Fetching blocks..."
     bks <- mapM fetchLocalBlock $ fhBlockHeaders fh
     untransformDatum fh $ B.concat bks
   where
     fetchLocalBlock :: BlockHeader -> RIO Block
     fetchLocalBlock bh = do
       dp <- dataPath
+      debug $ "Fetching block: " ++ blockPath bh
       io $ fromJust <$> fetchBlock dp bh
 
 writeDatum :: WriteFlags -> Path -> ByteString -> RIO ()
 writeDatum wf p b = do
+    verbose $ "Writing datum: " ++ toFilePath p
     -- Remove previous version if exists
     exists <- queryManifest $ Mf.pathIsFile p
     when exists $ removeDatum p
     -- Transform datum
     (fh, pairs) <- transformDatum tf b
     -- Write blocks to disk
+    verbose $ "Storing blocks..."
     mapM_ storeLocalBlock pairs
     -- Apply hash, update manifest, return
     createManifestFile p $ fh { fhHashHeader = mh }
@@ -536,10 +550,12 @@ writeDatum wf p b = do
     storeLocalBlock :: (BlockHeader, Block) -> RIO ()
     storeLocalBlock (bh, b) = do
       dp <- dataPath
+      debug $ "Storing block: " ++ blockPath bh
       io $ storeBlock dp bh b
 
 removeDatum :: Path -> RIO ()
 removeDatum p = do
+    verbose $ "Deleting datum: " ++ toFilePath p
     -- Remove blocks
     bhs <- fhBlockHeaders <$> readManifestFile p
     mapM_ deleteLocalBlock bhs
@@ -549,6 +565,7 @@ removeDatum p = do
     deleteLocalBlock ::BlockHeader -> RIO ()
     deleteLocalBlock bh = do
       dp <- dataPath
+      debug $ "Deleting block: " ++ blockPath bh
       io $ deleteBlock dp bh
 
 -- Handle - IO
@@ -578,17 +595,21 @@ extFileCompareHeader p = do
 readExtFile :: FilePath -> RIO ByteString
 readExtFile src = do
   r <- getRM
+  verbose $ "Reading extfile: " ++ src
   io . withFile src ReadMode $ \h -> evalRM (readHandle h) r
 
 -- NOTE: We use evalRM here because we know this doesn't change the repo's state
 writeExtFile :: WriteFlags -> FilePath -> ByteString -> RIO ()
 writeExtFile _ dst bs = do
   r <- getRM
+  verbose $ "Writing extfile: " ++ dst
   io . withFile dst WriteMode $ \h -> evalRM (writeHandle h bs) r
   -- NOTE: Cannot set file time
 
 removeExtFile :: FilePath -> RIO ()
-removeExtFile p = io $ removeFile p
+removeExtFile p = do
+  verbose $ "Deleting extfile: " ++ p
+  io $ removeFile p
 
 
 
@@ -599,15 +620,19 @@ multiplexExt :: (FilePath -> RIO a) -> FilePath -> RIO [a]
 multiplexExt f p = do
   isMagic <- isMagicSlash
   if isMagic && hasTrailingPathSeparator p
-    then io (getDirectory p) >>= mapM f
+    then do
+      verbose $ "Multiplexing on magic slash: " ++ p
+      io (getDirectory p) >>= mapM f
     else sequence [f p]
 
 -- Multiplexes on a trailing slash, internal
-multiplexInt :: (Monad m) => (Path -> RM m a) -> FilePath -> RM m [a]
+multiplexInt :: (Path -> RIO a) -> FilePath -> RIO [a]
 multiplexInt f p = do
     isMagic <- isMagicSlash
     if isMagic && hasTrailingPathSeparator p
-      then readManifestDirectory p' >>= mapM f
+      then do
+        verbose $ "Multiplexing on magic slash: " ++ p
+        readManifestDirectory p' >>= mapM f
       else sequence [f p']
   where p' = fromFilePath p
 
@@ -651,6 +676,7 @@ listPath rc dst = do
 -- getPath - overwrite, recurse, src, dst, repo
 getPath :: GetFlags -> Bool -> Bool -> Path -> FilePath -> RIO ()
 getPath gf rp rc src dst = do
+    terse $ "Getting: " ++ toFilePath src
     efexists <- io $ doesFileExist dst'
     edexists <- io $ doesDirectoryExist dst'
     isf <- queryManifest (Mf.pathIsFile src)
@@ -668,21 +694,16 @@ getPath gf rp rc src dst = do
         -- Light check, pre-read termination if possible
         whenWritable (shouldWrite wm chsrc mchdst) wm dst' $ do
           -- Read
-          debug $ "Getting: " ++ toFilePath src
           bs <- readDatum src
           -- NOTE: No deep check on extfiles for now
           -- write
-          verbose $ "Writing file " ++ dst'
           writeExtFile (convertGetFlags gf $ chTime chsrc) dst' bs
       (_,True) -> do -- Directory
           when efexists $
             error $ "File already exists at directory target: " ++ dst'
-          if rp && edexists
-            then do
-              verbose $ "Replacing:" ++ dst'
-              io $ removeDirectoryRecursive dst'
-            else do
-              verbose $ "Getting: " ++ dst'
+          when (rp && edexists) $ do
+            verbose $ "Replacing existing directory:" ++ dst'
+            io $ removeDirectoryRecursive dst'
           io $ createDirectoryIfMissing True dst'
           readManifestDirectory src >>= filterM filterChild >>= mapM_ getChild
       _ -> error "Get error: Source path does not exist."
@@ -695,6 +716,7 @@ getPath gf rp rc src dst = do
 -- putPath - overwrite files, replace dirs, recurse children, src, dst, repo
 putPath :: PutFlags -> Bool -> Bool -> FilePath -> Path -> RIO ()
 putPath pf rp rc src dst = do
+    terse $ "Putting: " ++ src
     efexists <- io $ doesFileExist src
     edexists <- io $ doesDirectoryExist src
     ifexists <- queryManifest (Mf.pathIsFile dst')
@@ -712,13 +734,11 @@ putPath pf rp rc src dst = do
         -- Light check, pre-read termination if possible
         whenWritable (shouldWrite wm chsrc mchdst) wm (toFilePath dst') $ do
           -- Read
-          debug $ "Reading file " ++ src
           bs <- readExtFile src
           let chdeep = deepenCompareHeader hs bs chsrc
           -- Deep check, pre-write termination if possible
           whenWritable (shouldWrite wm chdeep mchdst) wm (toFilePath dst') $ do
               -- Write
-              verbose $ "Putting file: " ++ toFilePath dst'
               writeDatum (convertPutFlags pf $ chTime chsrc) dst' bs
       (_,True) -> do
         when ifexists $
@@ -728,7 +748,7 @@ putPath pf rp rc src dst = do
             verbose $ "Replacing:" ++ toFilePath dst'
             delPath True dst'
           else do
-            verbose $ "Putting dir: " ++ toFilePath dst'
+            debug $ "Creating dir: " ++ toFilePath dst'
             createManifestDirectory dst'
         -- The filterM strips child directories if non-recursive
         io (getDirectory src) >>= filterM filterChild >>= mapM_ putChild
@@ -747,9 +767,9 @@ delPath _ [] = error "Cannot delete root!"
 delPath force dst = do
   isf <- queryManifest (Mf.pathIsFile dst)
   isd <- queryManifest (Mf.pathIsDirectory dst)
+  terse $ "Deleting: " ++ toFilePath dst
   case (isf, isd) of
     (True, _) -> do -- File
-      verbose $ "Deleting: " ++ toFilePath dst
       removeDatum dst
     (_, True) -> do -- Dir
       children <- readManifestDirectory dst
@@ -758,7 +778,6 @@ delPath force dst = do
         then mapM_ (delPath force) children
         else error "Cannot delete non-empty directory. Use -f to force deletion"
       -- Delete self
-      verbose $ "Deleting: " ++ toFilePath dst
       removeManifestDirectory dst
     _ -> error "Del error: Target path does not exist."
 

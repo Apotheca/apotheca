@@ -102,6 +102,7 @@ parseVerbosity :: Parser (Maybe Verbosity)
 parseVerbosity = optional $ flag' Silent (long "silent" <> help "Run without any print output.")
   <|> flag' Fatal (long "fatal" <> help "Run with only fatal print output.")
   <|> flag' Warn (long "warn" <> help "Run with >= warning print output.")
+  <|> flag' Terse (long "terse" <> help "Run with >= terse print output. Default.")
   <|> flag' Verbose (long "verbose" <> help "Run with >= verbose print output.")
   <|> flag' Debug (long "debug" <> help "Run with all print output, including debug.")
 
