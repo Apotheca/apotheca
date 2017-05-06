@@ -9,6 +9,7 @@ import           Options.Applicative
 
 import           Data.ByteString           (ByteString)
 import qualified Data.ByteString           as B
+import qualified Data.ByteString.Char8     as BC
 
 import           Apotheca.Encodable        (GzipCompression (..))
 import           Apotheca.Logs
@@ -346,7 +347,7 @@ prefixLong mpf lng = long $ maybe lng (\pf -> concat [pf,"-",lng]) mpf
 parseHashStrat :: Maybe String -> Parser HashStrategy
 parseHashStrat mprefix = HashStrategy
     <$> option auto (pflong "hash" <> metavar "HASH" <> help "Hash algorithm.")
-    <*> option auto (pflong "salt" <> metavar "SALT" <> value B.empty <> help "Salt.")
+    <*> (fmap BC.pack $ strOption (pflong "salt" <> metavar "SALT" <> value [] <> help "Salt."))
     <*> optional (option auto (pflong "hlimit" <> metavar "HLIMIT" <> help "Hash limit."))
   where
     pflong = prefixLong mprefix
