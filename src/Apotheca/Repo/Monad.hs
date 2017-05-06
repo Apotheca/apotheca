@@ -358,39 +358,56 @@ compareHash ma mb = isJust ma && maybe False (fromJust ma ==) mb
 
 -- Should-write convenience
 
-shouldWrite :: WriteMode -> CompareHeader -> Maybe CompareHeader -> Bool
+shouldWrite :: WriteMode -> CompareHeader -> Maybe CompareHeader -> (Bool, Maybe String)
 shouldWrite = shouldWriteWith compareTimes compareHashes
 
-shouldWriteWith :: CHCompare -> CHCompare -> WriteMode -> CompareHeader -> Maybe CompareHeader -> Bool
-shouldWriteWith light deep wm a mb = case wm of
-    Add -> isNothing mb
-    Overwrite -> maybe True (not . deep a) mb
-    Update -> maybe (fwd Overwrite) (not . light a) mb
-    Freshen -> isJust mb && fwd Update
-  where
-    b = fromJust mb
-    fwd wm' = shouldWriteWith light deep wm' a mb
+shouldWrite' :: WriteMode -> CompareHeader -> Maybe CompareHeader -> Bool
+shouldWrite' wm ch mch = fst $ shouldWrite wm ch mch
 
-shouldWriteFailureReason :: WriteMode -> String -> String
-shouldWriteFailureReason wm dst = case wm of
-  Add -> "Ignoring add: File already exists; use -o to overwrite: " ++ dst
-  Overwrite -> "Ignoring overwrite: Matching hash found:" ++ dst
-  Update -> "Ignoring update: Matching timestamp or hash found:" ++ dst
-  Freshen -> "Ignoring freshen: File does not exist; use -u to update:" ++ dst
+-- shouldWriteWith :: CHCompare -> CHCompare -> WriteMode -> CompareHeader -> Maybe CompareHeader -> Bool
+-- shouldWriteWith light deep wm a mb = case wm of
+--     Add -> isNothing mb
+--     Overwrite -> maybe True (not . deep a) mb
+--     Update -> maybe (fwd Overwrite) (not . light a) mb
+--     Freshen -> isJust mb && fwd Update
+--   where
+--     b = fromJust mb
+--     fwd wm' = shouldWriteWith light deep wm' a mb
+
+shouldWriteWith :: CHCompare -> CHCompare -> WriteMode -> CompareHeader -> Maybe CompareHeader -> (Bool, Maybe String)
+shouldWriteWith light deep wm a mb = case wm of
+      Add -> wrap $ isNothing mb
+      Overwrite -> wrap $ maybe True (not . deep a) mb
+      Update -> maybe (wrap True) (\b -> if light a b then wrap False else fwd Overwrite) mb
+      Freshen -> maybe (wrap False) (const $ fwd Update) mb
+    where
+      b = fromJust mb
+      fwd wm' = shouldWriteWith light deep wm' a mb
+      wrap b = (b, if b then Nothing else Just $ shouldWriteIgnoreReason wm)
+
+-- NOTE: The correct reason is not returned properly if the query forwards to another WriteMode
+shouldWriteIgnoreReason :: WriteMode -> String
+shouldWriteIgnoreReason wm = case wm of
+  Add -> "File already exists; use -o to overwrite: "
+  Overwrite -> "Matching hash found: "
+  Update -> "Insufficient timestamp found; use -o to overwrite: "
+  Freshen -> "File does not exist; use -u to update: "
+
+
 
 -- TODO: shouldWriteWithRIO :: (RIO CHCompare) -> (RIO CHCompare) -> ... -> RIO Bool
 
 -- Convenience function for just timestamps, to use before hashing
-shouldWriteTime :: WriteMode -> Int -> Maybe Int -> Bool
-shouldWriteTime wm ta mtb = shouldWrite wm a mb
-  where
-    a = timeCompareHeader ta
-    mb = mtb >>= Just . timeCompareHeader
+-- shouldWriteTime :: WriteMode -> Int -> Maybe Int -> Bool
+-- shouldWriteTime wm ta mtb = shouldWrite' wm a mb
+--   where
+--     a = timeCompareHeader ta
+--     mb = mtb >>= Just . timeCompareHeader
 
-whenWritable :: Bool -> WriteMode -> String -> RIO () -> RIO ()
-whenWritable writable wm dst act = if writable
+whenWritable :: (Bool, Maybe String) -> WriteMode -> String -> RIO () -> RIO ()
+whenWritable (writable, mreason) wm dst act = if writable
   then act
-  else verbose $ shouldWriteFailureReason wm dst
+  else verbose $ concat [ "Ignoring ", show wm, ": ", fromJust mreason, dst ]
 
 
 -- Blocks
@@ -605,6 +622,8 @@ getSecret = return "cheese"
 
 -- Map-like
 -- NOTE: Paths must already be validated or an error may occur
+-- TODO: Change replace-dirs to prune as in prune-missing-contents
+--  They should be identical in function, and prune is clearer (and matches 'p')
 
 listPath :: Bool -> Path -> RIO [Path]
 listPath rc dst = do
