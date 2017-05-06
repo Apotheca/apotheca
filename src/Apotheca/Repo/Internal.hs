@@ -59,7 +59,7 @@ instance Encodable BlockHeader
 --  Ie: type CipherTransformer = Maybe CipherStrategy
 
 data SplitStrategy
-  = ExplicitSplit Int
+  = ConstSplit Int
   | AdaptiveSplit (Int, Int)
   | NoSplit
   deriving (Show, Read, Eq, Generic)

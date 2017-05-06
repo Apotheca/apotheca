@@ -82,7 +82,7 @@ splitWith :: SplitStrategy -> ByteString -> [Block]
 -- Constant block size split - given a number of bytes, splits into chunks of that size
 --  NOTE: Last block is not padded
 -- NOTE: Does not require power-of-two for now
-splitWith (ExplicitSplit i) = chunksOf i
+splitWith (ConstSplit i) = chunksOf i
 -- Takes largest square block possible where mn <= n <= mx
 --  NOTE: Last block is not padded
 splitWith (AdaptiveSplit (mn, mx)) = L.unfoldr $ \b -> if B.null b
