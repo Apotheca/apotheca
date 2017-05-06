@@ -676,7 +676,6 @@ listPath rc dst = do
 -- getPath - overwrite, recurse, src, dst, repo
 getPath :: GetFlags -> Bool -> Bool -> Path -> FilePath -> RIO ()
 getPath gf rp rc src dst = do
-    terse $ "Getting: " ++ toFilePath src
     efexists <- io $ doesFileExist dst'
     edexists <- io $ doesDirectoryExist dst'
     isf <- queryManifest (Mf.pathIsFile src)
@@ -693,6 +692,7 @@ getPath gf rp rc src dst = do
           else return Nothing
         -- Light check, pre-read termination if possible
         whenWritable (shouldWrite wm chsrc mchdst) wm dst' $ do
+          terse $ "Getting: " ++ toFilePath src
           -- Read
           bs <- readDatum src
           -- NOTE: No deep check on extfiles for now
@@ -704,6 +704,7 @@ getPath gf rp rc src dst = do
           when (rp && edexists) $ do
             verbose $ "Replacing existing directory:" ++ dst'
             io $ removeDirectoryRecursive dst'
+          terse $ "Getting: " ++ toFilePath src
           io $ createDirectoryIfMissing True dst'
           readManifestDirectory src >>= filterM filterChild >>= mapM_ getChild
       _ -> error "Get error: Source path does not exist."
@@ -716,7 +717,6 @@ getPath gf rp rc src dst = do
 -- putPath - overwrite files, replace dirs, recurse children, src, dst, repo
 putPath :: PutFlags -> Bool -> Bool -> FilePath -> Path -> RIO ()
 putPath pf rp rc src dst = do
-    terse $ "Putting: " ++ src
     efexists <- io $ doesFileExist src
     edexists <- io $ doesDirectoryExist src
     ifexists <- queryManifest (Mf.pathIsFile dst')
@@ -733,6 +733,7 @@ putPath pf rp rc src dst = do
           else return Nothing
         -- Light check, pre-read termination if possible
         whenWritable (shouldWrite wm chsrc mchdst) wm (toFilePath dst') $ do
+          terse $ "Putting: " ++ src
           -- Read
           bs <- readExtFile src
           let chdeep = deepenCompareHeader hs bs chsrc
@@ -743,6 +744,7 @@ putPath pf rp rc src dst = do
       (_,True) -> do
         when ifexists $
           error $ "File already exists at directory target: " ++ toFilePath dst'
+        terse $ "Putting: " ++ src
         if rp && idexists
           then do
             verbose $ "Replacing:" ++ toFilePath dst'
