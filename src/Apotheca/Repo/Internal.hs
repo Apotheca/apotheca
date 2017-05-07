@@ -72,16 +72,18 @@ instance Encodable SplitStrategy
 
 
 data Config = Config
-  { selectedManifest :: Maybe String
-  , encryptManifest  :: Bool
-  , defaultSplit     :: SplitStrategy
-  , largeSplit       :: Maybe SplitStrategy
-  , largeSplitLimit  :: Int
-  , blockHash        :: HashStrategy
-  , defaultCipher    :: Maybe CipherStrategy
+  { selectedManifest   :: Maybe String
+  , encryptManifest    :: Bool
+  , blockHash          :: HashStrategy
+  , defaultSplit       :: SplitStrategy
+  , largeSplit         :: Maybe SplitStrategy
+  , largeSplitLimit    :: Int
+  , defaultCompression :: GzipCompression
+  , defaultHash        :: Maybe HashStrategy
+  , defaultCipher      :: Maybe CipherStrategy
   -- , defaultExchange :: Maybe ExchangeStrategy
   -- , defaultSigning  :: Maybe SigningStrategy
-  , watchedDirs      :: [WatchStrategy]
+  , watchedDirs        :: [WatchStrategy]
   } deriving (Read, Show, Generic)
 
 instance Serialize Config
@@ -228,12 +230,23 @@ data WriteMode
   | Freshen -- Ignore if non-existent, overwrite if more recent
   deriving (Show, Read, Eq)
 
+-- data PutFlags = PutFlags
+--   { pfWriteMode   :: WriteMode
+--   -- , pfTime        :: Maybe Int
+--   , pfHashStrat   :: Maybe HashStrategy -- Plaintext checksum
+--   , pfCompression :: Maybe GzipCompression
+--   , pfCipherStrat :: Maybe CipherStrategy -- Ciphertext
+--   } deriving (Show, Read, Eq)
+
 data PutFlags = PutFlags
   { pfWriteMode   :: WriteMode
   -- , pfTime        :: Maybe Int
-  , pfHashStrat   :: Maybe HashStrategy -- Plaintext checksum
-  , pfCompression :: Maybe GzipCompression
-  , pfCipherStrat :: Maybe CipherStrategy -- Ciphertext
+  -- , pfForceLarge :: Bool
+  , pfSplitStrat  :: Inherited SplitStrategy
+  , pfHashStrat   :: Inherited (Maybe HashStrategy) -- Plaintext checksum
+  -- , pfPerBlock    :: Inherited Bool -- Per-block encryption+compression / pre-transform splitting
+  , pfCompression :: Inherited GzipCompression
+  , pfCipherStrat :: Inherited (Maybe CipherStrategy) -- Ciphertext
   } deriving (Show, Read, Eq)
 
 data GetFlags = GetFlags
@@ -261,7 +274,8 @@ data AccessFlags = AccessFlags
   } deriving (Show, Read, Eq)
 
 data TransformFlags = TransformFlags
-  { tfCompression :: Maybe GzipCompression
+  { tfSplitStrat  :: Inherited SplitStrategy
+  , tfCompression :: GzipCompression
   , tfCipherStrat :: Maybe CipherStrategy -- Ciphertext
   } deriving (Show, Read, Eq)
 

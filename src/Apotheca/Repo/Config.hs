@@ -30,11 +30,13 @@ defaultConfig :: Config
 defaultConfig = Config
   { selectedManifest = Nothing
   , encryptManifest  = False
+  , blockHash        = newHashStrategy SHA2
   , defaultSplit     = NoSplit
   , largeSplit       = Just . ConstSplit $ 2 ^ 22
   , largeSplitLimit  = 2 ^ 22 -- 4mb
-  , blockHash        = newHashStrategy SHA2
-  , defaultCipher    = Nothing
+  , defaultCompression = NoCompression
+  , defaultHash      = Just $ newHashStrategy SHA2
+  , defaultCipher    = Just $ defaultCipherStrategy
   , watchedDirs = []
   }
 

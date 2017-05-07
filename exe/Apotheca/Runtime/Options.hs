@@ -33,7 +33,7 @@ withInfo :: Parser a -> String -> ParserInfo a
 withInfo opts desc = info (helper <*> opts)
   $ fullDesc
   <> progDesc desc
-  <> header "Apotheca DHT - distributed data storage"
+  <> header "Apotheca DHT - distributed encrypted data storage"
   <> footer "Goodbye."
 
 data RuntimeOptions = Options {
@@ -340,6 +340,16 @@ parseWriteMode
 prefixLong :: Maybe String -> String -> Mod OptionFields a
 prefixLong mpf lng = long $ maybe lng (\pf -> concat [pf,"-",lng]) mpf
 
+parseSplitStrat :: Parser SplitStrategy
+parseSplitStrat
+  = flag' NoSplit (long "no-split" <> help "Do not split into blocks.")
+  <|> ConstSplit <$> option auto (long "const-split" <> help "Split into blocks of constant size.")
+  <|> flag' (curry AdaptiveSplit) (long "adapt-split" <> help "Split into blocks of adaptive size.")
+    <*> option auto (long "adapt-min" <> value 4096 <> help "Minimum adaptive split block size. Default: 4kb")
+    <*> option auto (long "adapt-max" <> value 4194304 <> help "Maximum adaptive split block size. Default: 4mb")
+  -- TODO: Write a parser for (Int,Int), then use this instead:
+  -- <|> AdaptiveSplit <$> option auto (long "adapt-split" <> help "Split into blocks of constant size.")
+
 -- NOTE: Having no default value on the first option makes this work right with
 --  flags and Maybe HashStrategy
 --  eg, "foo --hash Tiger == Just HashStrategy; "foo" == Nothing
@@ -352,6 +362,9 @@ parseHashStrat mprefix = HashStrategy
   where
     pflong = prefixLong mprefix
 
+parseMaybeHashStrat :: Maybe String -> Parser (Maybe HashStrategy)
+parseMaybeHashStrat mprefix = (Just <$> parseHashStrat mprefix) <|> flag' Nothing (long "no-hash" <> help "No hash.")
+
 parseCipherStrat :: Parser CipherStrategy
 parseCipherStrat = CipherStrategy
     <$> option auto (long "cipher" <> metavar "CIPHER" <> help "Cipher algorithm.")
@@ -359,13 +372,21 @@ parseCipherStrat = CipherStrategy
     <*> pure True -- Force derived keys for now, until error checking is in place
     <*> optional (parseHashStrat $ Just "ct")
 
+parseMaybeCipherStrat :: Parser (Maybe CipherStrategy)
+parseMaybeCipherStrat = (Just <$> parseCipherStrat) <|> flag' Nothing (long "no-cipher" <> help "No cipher.")
+
 parsePutFlags :: Parser PutFlags
 parsePutFlags = PutFlags
   <$> parseWriteMode
   -- <*> optional (option auto (long "mtime" <> metavar "TIME" <> help "Modification timestamp."))
-  <*> optional (parseHashStrat Nothing)
-  <*> optional parseGzipCompression
-  <*> optional parseCipherStrat
+  <*> inheritable parseSplitStrat
+  <*> inheritable (parseMaybeHashStrat Nothing)
+  <*> inheritable parseGzipCompression
+  <*> inheritable  parseMaybeCipherStrat
+
+inheritable :: Parser a -> Parser (Inherited a)
+inheritable f = Explicit <$> f <|> pure Inherit
+
 
 parseGetFlags :: Parser GetFlags
 parseGetFlags = GetFlags

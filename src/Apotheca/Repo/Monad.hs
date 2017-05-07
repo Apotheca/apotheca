@@ -412,8 +412,12 @@ whenWritable (writable, mreason) wm dst act = if writable
   else verbose $ concat [ "Ignoring ", show wm, ": ", fromJust mreason, dst ]
 
 
--- Blocks
+
+-- Config convenience
 -- TODO: (isLarge :: Bool, isRandomAccess :: Bool)
+
+getBlockHash :: (Monad m) => RM m HashStrategy
+getBlockHash = queryConfig blockHash
 
 getDefaultSplitStrategy :: (Monad m) => RM m SplitStrategy
 getDefaultSplitStrategy = queryConfig defaultSplit
@@ -438,9 +442,22 @@ getSplitStrategy bs = do
     then fromJust <$> getLargeSplitStrategy
     else getDefaultSplitStrategy
 
-splitBlocks :: (Monad m) => ByteString -> RM m [Block]
-splitBlocks bs = do
-  s <- getSplitStrategy bs
+getCompression :: (Monad m) => RM m GzipCompression
+getCompression = queryConfig defaultCompression
+
+getDefaultHash :: (Monad m) => RM m (Maybe HashStrategy)
+getDefaultHash = queryConfig defaultHash
+
+getDefaultCipher :: (Monad m) => RM m (Maybe CipherStrategy)
+getDefaultCipher = queryConfig defaultCipher
+
+
+
+-- Perform splitting
+
+splitBlocks :: (Monad m) => TransformFlags -> ByteString -> RM m [Block]
+splitBlocks tf bs = do
+  s <- inheritRM (getSplitStrategy bs) $ tfSplitStrat tf
   return $ splitWith s bs
 
 assignBlockHeaders :: (Monad m) => BlockType -> [Block] -> RM m [(BlockHeader, Block)]
@@ -463,11 +480,11 @@ assignBlockHeaders bt bs = do
 transformDatum :: TransformFlags -> ByteString -> RIO (FileHeader, [(BlockHeader,Block)])
 transformDatum tf b = do
     -- compress
-    b' <- case tfCompression tf of
-      Just cprs -> do
+    b' <- case cprs of
+      NoCompression -> return b
+      _ -> do
         verbose $ "Compressing with: " ++ show cprs
         return $ compress cprs b
-      Nothing -> return b
     -- encrypt
     (b'', ch)  <- if isJust $ tfCipherStrat tf
       then do
@@ -478,7 +495,7 @@ transformDatum tf b = do
         let Right (ch, ct) = encipherHeaderWith cs nonce secret b'
         return (ct, Just ch)
       else return (b', Nothing)
-    pairs <- splitBlocks b'' >>= assignBlockHeaders LocalBlock
+    pairs <- splitBlocks tf b'' >>= assignBlockHeaders LocalBlock
     return ( FileHeader
         { fhSize = B.length b
         , fhCompression = cprs
@@ -489,7 +506,7 @@ transformDatum tf b = do
       , pairs
       )
   where
-    cprs = fromMaybe NoCompression $ tfCompression tf
+    cprs = tfCompression tf
 
 untransformDatum :: FileHeader -> ByteString -> RIO ByteString
 untransformDatum fh b = do
@@ -498,8 +515,11 @@ untransformDatum fh b = do
     let pt = case fhCipherHeader fh of
           Just ch -> fromRight $ decipherHeaderWith ch secret b
           Nothing -> b
-    verbose "Decompressing..."
-    return $ decompress (fhCompression fh) pt
+    case fhCompression fh of
+      NoCompression -> return pt
+      cprs -> do
+        verbose "Decompressing..."
+        return $ decompress cprs pt
   where fromRight (Right r) = r
 
 
@@ -697,7 +717,8 @@ getPath gf rp rc src dst = do
           bs <- readDatum src
           -- NOTE: No deep check on extfiles for now
           -- write
-          writeExtFile (convertGetFlags gf $ chTime chsrc) dst' bs
+          wf <- inheritGet (chTime chsrc) gf
+          writeExtFile wf dst' bs
       (_,True) -> do -- Directory
           when efexists $
             error $ "File already exists at directory target: " ++ dst'
@@ -736,11 +757,20 @@ putPath pf rp rc src dst = do
           terse $ "Putting: " ++ src
           -- Read
           bs <- readExtFile src
-          let chdeep = deepenCompareHeader hs bs chsrc
+          -- Compare source with dest hash if it exists
+          let
+            mhdst :: Maybe HashStrategy
+            mhdst = do
+              chdst <- mchdst
+              hh <- chHashHeader chdst
+              return $ hashStrategy hh
+            chdeep = deepenCompareHeader mhdst bs chsrc
           -- Deep check, pre-write termination if possible
+          -- NOTE: Redundant when chdeep == chsrc
           whenWritable (shouldWrite wm chdeep mchdst) wm (toFilePath dst') $ do
               -- Write
-              writeDatum (convertPutFlags pf $ chTime chsrc) dst' bs
+              wf <- inheritPut (chTime chsrc) pf
+              writeDatum wf dst' bs
       (_,True) -> do
         when ifexists $
           error $ "File already exists at directory target: " ++ toFilePath dst'
@@ -792,25 +822,37 @@ getHandle _ h p = readDatum p >>= writeHandle h
 putHandle :: PutFlags -> Handle -> Path -> RIO ()
 putHandle pf h p = do
   t <- io $ Mf.getTime
-  readHandle h >>= writeDatum (convertPutFlags pf t) p
+  wf <- inheritPut t pf
+  readHandle h >>= writeDatum wf p
 
--- Temporary helpers, bad form for now
 
-convertPutFlags :: PutFlags -> Int -> WriteFlags
-convertPutFlags pf t = WriteFlags
-  { wfWriteMode = pfWriteMode pf
-  , wfAccessFlags = AccessFlags
-    { afModifyTime = t
-    , afHashStrat = pfHashStrat pf
+
+-- Inherit args
+
+inheritRM :: (Monad m) => (RM m a) -> Inherited a -> RM m a
+inheritRM _ (Explicit b) = return b
+inheritRM f Inherit = f
+
+inheritPut :: (Monad m) => Int -> PutFlags -> RM m WriteFlags
+inheritPut t pf = do
+  cmprs <- inheritRM getCompression $ pfCompression pf
+  hs <- inheritRM getDefaultHash $ pfHashStrat pf
+  cs <- inheritRM getDefaultCipher $ pfCipherStrat pf
+  return $ WriteFlags
+    { wfWriteMode = pfWriteMode pf
+    , wfAccessFlags = AccessFlags
+      { afModifyTime = t
+      , afHashStrat = hs
+      }
+    , wfTransformFlags = TransformFlags
+      { tfSplitStrat = pfSplitStrat pf
+      , tfCompression = cmprs
+      , tfCipherStrat = cs
+      }
     }
-  , wfTransformFlags = TransformFlags
-    { tfCompression = pfCompression pf
-    , tfCipherStrat = pfCipherStrat pf
-    }
-  }
 
-convertGetFlags :: GetFlags -> Int -> WriteFlags
-convertGetFlags gf t = WriteFlags
+inheritGet :: (Monad m) => Int ->  GetFlags -> RM m WriteFlags
+inheritGet t gf = return $ WriteFlags
   { wfWriteMode = gfWriteMode gf
   , wfAccessFlags = AccessFlags
     { afModifyTime = t
