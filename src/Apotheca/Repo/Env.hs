@@ -115,9 +115,10 @@ getAncestry p = pathAncestry <$> canonicalizePath p
 -- Returns a relative path, not just name
 -- Does *NOT* return "." or ".." like getDirectoryContents
 -- TODO: Rename getDirectoryPaths
+-- NOTE: Naive use of specialName - won't work for bare repos
 getDirectory :: FilePath -> IO [FilePath]
 getDirectory p = map (p </>) . filter stripSpecial <$> getDirectoryContents p
-  where stripSpecial a = a /= "." && a /= ".."
+  where stripSpecial a = a /= "." && a /= ".." && a /= specialName
 
 -- Ditto
 getDirectoryRecursive :: FilePath -> IO [FilePath]
