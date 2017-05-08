@@ -170,7 +170,7 @@ newRepo cf e = defaultRepo
     { repoEnv = e
     , repoConfig = defaultConfig
       { defaultSplit = fromDefault defaultSplit $ cfSplit cf
-      , largeSplitLimit = fromDefault largeSplitLimit $ cfLarge cf
+      , largeSplitLimit = cfLarge cf
       , defaultHash = cfHashStrat cf
       , defaultCompression = fromDefault defaultCompression $ cfCompression cf
       , defaultCipher = cfCipher cf
@@ -435,17 +435,18 @@ getBlockHash = queryConfig blockHash
 getDefaultSplitStrategy :: (Monad m) => RM m SplitStrategy
 getDefaultSplitStrategy = queryConfig defaultSplit
 
-getLargeSplitStrategy :: (Monad m) => RM m (Maybe SplitStrategy)
-getLargeSplitStrategy = queryConfig largeSplit
-
-getLargeSplitLimit :: (Monad m) => RM m Int
+getLargeSplitLimit :: (Monad m) => RM m (Maybe Int)
 getLargeSplitLimit = queryConfig largeSplitLimit
+
+getLargeSplitStrategy :: (Monad m) => RM m (Maybe SplitStrategy)
+getLargeSplitStrategy = do
+  mlimit <- queryConfig largeSplitLimit
+  return (ConstSplit <$> mlimit)
 
 isLarge :: (Monad m) => ByteString -> RM m Bool
 isLarge bs = do
-    lsplit <- getLargeSplitStrategy
-    limit <- getLargeSplitLimit
-    return $ maybe False (const $ len > limit) lsplit
+    mlimit <- getLargeSplitLimit
+    return $ maybe False (\limit -> len > limit) mlimit
   where len = B.length bs
 
 getSplitStrategy :: (Monad m) => ByteString -> RM m SplitStrategy

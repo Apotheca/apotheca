@@ -35,7 +35,7 @@ library
     , Apotheca.Repo.Manifest
     , Apotheca.Repo.Monad
     , Apotheca.Repo.Path
-    , Apotheca.Repo.Repo
+    -- , Apotheca.Repo.Repo
     , Apotheca.Repo.Internal
     , Apotheca.Repo.Watcher
   -- other-modules:

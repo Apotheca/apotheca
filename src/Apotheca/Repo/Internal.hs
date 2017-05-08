@@ -76,8 +76,7 @@ data Config = Config
   , encryptManifest    :: Bool
   , blockHash          :: HashStrategy
   , defaultSplit       :: SplitStrategy
-  , largeSplit         :: Maybe SplitStrategy
-  , largeSplitLimit    :: Int
+  , largeSplitLimit    :: Maybe Int
   , defaultCompression :: GzipCompression
   , defaultHash        :: Maybe HashStrategy
   , defaultCipher      :: Maybe CipherStrategy

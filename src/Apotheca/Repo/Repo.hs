@@ -215,8 +215,8 @@ destroyRepo r = do
 -- Helpers
 
 isLarge :: Repo -> ByteString -> Bool
-isLarge r bs = case largeSplit c of
-    Just ss -> B.length bs >= largeSplitLimit c
+isLarge r bs = case largeSplitLimit c of
+    Just i -> B.length bs >= i
     Nothing -> False
   where
     c = repoConfig r
@@ -229,7 +229,7 @@ splitBlocks r bs = splitWith strat bs
   where
     c = repoConfig r
     strat = if isLarge r bs
-      then fromJust $ largeSplit c
+      then ConstSplit $ largeSplitLimit c
       else defaultSplit c
 
 assignBlockHeaders :: Repo -> BlockType -> [Block] -> [(BlockHeader, Block)]

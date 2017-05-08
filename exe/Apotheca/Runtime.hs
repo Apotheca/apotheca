@@ -13,8 +13,9 @@ import           System.IO
 
 -- import           Apotheca.Encodable
 import           Apotheca.Logs
+import           Apotheca.Repo.Env
+import           Apotheca.Repo.Internal
 import           Apotheca.Repo.Path
-import           Apotheca.Repo.Repo
 
 import           Apotheca.Runtime.Commands
 import           Apotheca.Runtime.Options
