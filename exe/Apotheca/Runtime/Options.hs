@@ -152,9 +152,9 @@ parseConfigFlags = ConfigFlags
   <$> switch (long "bare" <> help "Create as a bare repository.")
   <*> optional parseSplitStrat
   <*> optional (option auto (short 'l' <> long "large" <> help "Large file limit."))
-  <*> parseMaybeHashStrat Nothing
+  <*> (parseMaybeHashStrat Nothing <|> pure Nothing)
   <*> optional parseGzipCompression
-  <*> parseMaybeCipherStrat
+  <*> (parseMaybeCipherStrat <|> pure Nothing)
 
 parseNuke :: Parser RuntimeCommand
 parseNuke = Nuke <$> parseForce "Force removal without confirmation, ignoring errors."
