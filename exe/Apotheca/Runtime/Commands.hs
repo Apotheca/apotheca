@@ -50,7 +50,7 @@ import           Apotheca.Repo.Path
 data RuntimeCommand
   = NoCommand
   -- Repo management
-  | New Bool
+  | New ConfigFlags
   | Nuke Bool
   -- Query
   | Where
@@ -90,7 +90,7 @@ runCommand :: RuntimeCommand -> Env -> IO ()
 runCommand cmd e = do
   case cmd of
     -- Repo-less (env-only) commands
-    New bare -> runNew bare e
+    New cf -> runNew cf e
     Nuke force -> runNuke force e
     Where -> runWhere e
     Info -> runInfo e
@@ -118,10 +118,12 @@ runCommand cmd e = do
 
 -- Repo management commands
 
-runNew bare e = do
+runNew cf e = do
     Lg.terse v $ "Attempting to create repo at: " ++ repoDir e
-    void . createRepo $ e { repoType = if bare then BareRepo else HiddenRepo }
-  where v = verbosity e
+    void . createRepo cf $ e { repoType = if bare then BareRepo else HiddenRepo }
+  where
+    v = verbosity e
+    bare = cfBare cf
 
 runNuke force e = do
     r <- openRepo e

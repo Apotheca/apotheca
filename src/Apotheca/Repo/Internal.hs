@@ -279,6 +279,17 @@ data TransformFlags = TransformFlags
   , tfCipherStrat :: Maybe CipherStrategy -- Ciphertext
   } deriving (Show, Read, Eq)
 
+-- For setting default config values
+-- TODO: Make Inherited, eg: Inherited a instead of a
+data ConfigFlags = ConfigFlags
+  { cfBare        :: Bool
+  , cfSplit       :: Maybe SplitStrategy
+  , cfLarge       :: Maybe Int
+  , cfHashStrat   :: Maybe HashStrategy
+  , cfCompression :: Maybe GzipCompression
+  , cfCipher      :: Maybe CipherStrategy
+  } deriving (Show, Read, Eq)
+
 
 
 -- WatchStrategy

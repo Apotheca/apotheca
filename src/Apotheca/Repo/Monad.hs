@@ -165,7 +165,20 @@ defaultRepo = Repo
   , repoIgnore = ignore []
   }
 
-newRepo e = defaultRepo { repoEnv = e }
+newRepo :: ConfigFlags -> Env -> Repo
+newRepo cf e = defaultRepo
+    { repoEnv = e
+    , repoConfig = defaultConfig
+      { defaultSplit = fromDefault defaultSplit $ cfSplit cf
+      , largeSplitLimit = fromDefault largeSplitLimit $ cfLarge cf
+      , defaultHash = cfHashStrat cf
+      , defaultCompression = fromDefault defaultCompression $ cfCompression cf
+      , defaultCipher = cfCipher cf
+      }-- TODO: Overwrite defaultConfig values with ConfigFlag values
+    }
+  where
+    fromDefault :: (Config -> a) -> Maybe a -> a
+    fromDefault f ma = fromMaybe (f defaultConfig) ma
 
 
 
@@ -186,18 +199,18 @@ newRepo e = defaultRepo { repoEnv = e }
 --  $/IGNORE -- Ignore file
 --  ./.apo -- A hidden FILE signifying a bare repo (otherwise is dir)
 
-openOrCreateRepo :: Env -> IO Repo
-openOrCreateRepo e = do
+openOrCreateRepo :: ConfigFlags -> Env -> IO Repo
+openOrCreateRepo cf e = do
     exists <- doesRepoExist rp
     if exists
       then openRepo e
-      else createRepo e
+      else createRepo cf e
   where
     rp = repoDir e
 
 -- This just sets up the repo directories - repo must still be persisted after.
-createRepo :: Env -> IO Repo
-createRepo e = do
+createRepo :: ConfigFlags -> Env -> IO Repo
+createRepo cf e = do
     -- TODO: Fix / warn on creating bare repo in a directory w/ existing contents
     errorWhen (doesRepoExist rp) "Cannot create repo: Repo already exists."
     --
@@ -205,7 +218,7 @@ createRepo e = do
     mapM_ (createDirectoryIfMissing True . (dp </>)) blockDirs
     when bare $ B.writeFile (dp </> specialName) "BARE"
     --
-    execRM persistRepo $ newRepo e
+    execRM persistRepo $ newRepo cf e
   where
     bare = repoType e == BareRepo
     rp = repoDir e

@@ -145,10 +145,16 @@ subcmd cmd info parser = command cmd $ parser `withInfo` info
 -- Repo management
 
 parseNew :: Parser RuntimeCommand
-parseNew = New <$> (switch $
-  ( long "bare"
-  <> help "Create as a bare repository."
-  ))
+parseNew = New <$> parseConfigFlags
+
+parseConfigFlags :: Parser ConfigFlags
+parseConfigFlags = ConfigFlags
+  <$> switch (long "bare" <> help "Create as a bare repository.")
+  <*> optional parseSplitStrat
+  <*> optional (option auto (short 'l' <> long "large" <> help "Large file limit."))
+  <*> parseMaybeHashStrat Nothing
+  <*> optional parseGzipCompression
+  <*> parseMaybeCipherStrat
 
 parseNuke :: Parser RuntimeCommand
 parseNuke = Nuke <$> parseForce "Force removal without confirmation, ignoring errors."
@@ -345,8 +351,8 @@ parseSplitStrat
   = flag' NoSplit (long "no-split" <> help "Do not split into blocks.")
   <|> ConstSplit <$> option auto (long "const-split" <> help "Split into blocks of constant size.")
   <|> flag' (curry AdaptiveSplit) (long "adapt-split" <> help "Split into blocks of adaptive size.")
-    <*> option auto (long "adapt-min" <> value 4096 <> help "Minimum adaptive split block size. Default: 4kb")
-    <*> option auto (long "adapt-max" <> value 4194304 <> help "Maximum adaptive split block size. Default: 4mb")
+    <*> option auto (short 'M' <> long "adapt-min" <> value 4096 <> help "Minimum adaptive split block size. Default: 4kb")
+    <*> option auto (short 'N' <> long "adapt-max" <> value 4194304 <> help "Maximum adaptive split block size. Default: 4mb")
   -- TODO: Write a parser for (Int,Int), then use this instead:
   -- <|> AdaptiveSplit <$> option auto (long "adapt-split" <> help "Split into blocks of constant size.")
 
@@ -363,7 +369,8 @@ parseHashStrat mprefix = HashStrategy
     pflong = prefixLong mprefix
 
 parseMaybeHashStrat :: Maybe String -> Parser (Maybe HashStrategy)
-parseMaybeHashStrat mprefix = (Just <$> parseHashStrat mprefix) <|> flag' Nothing (long "no-hash" <> help "No hash.")
+parseMaybeHashStrat mprefix = (Just <$> parseHashStrat mprefix)
+  <|> flag' Nothing (long "no-hash" <> help "No hash.")
 
 parseCipherStrat :: Parser CipherStrategy
 parseCipherStrat = CipherStrategy
@@ -373,7 +380,9 @@ parseCipherStrat = CipherStrategy
     <*> optional (parseHashStrat $ Just "ct")
 
 parseMaybeCipherStrat :: Parser (Maybe CipherStrategy)
-parseMaybeCipherStrat = (Just <$> parseCipherStrat) <|> flag' Nothing (long "no-cipher" <> help "No cipher.")
+parseMaybeCipherStrat =
+  (Just <$> parseCipherStrat)
+  <|> flag' Nothing (long "no-cipher" <> help "No cipher.")
 
 parsePutFlags :: Parser PutFlags
 parsePutFlags = PutFlags
