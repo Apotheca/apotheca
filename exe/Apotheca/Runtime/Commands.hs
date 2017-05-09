@@ -50,7 +50,7 @@ import           Apotheca.Repo.Path
 data RuntimeCommand
   = NoCommand
   -- Repo management
-  | New ConfigFlags
+  | New ConfigFlags -- TODO: --template <TEMPLATE>
   | Nuke Bool
   -- Query
   | Where

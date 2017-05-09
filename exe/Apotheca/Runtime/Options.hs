@@ -331,7 +331,7 @@ parseWriteMode
   <|> flag' Overwrite
     ( short 'o'
     <> long "overwrite"
-    <> help "Add if non-existent, overwrite if existent.")
+    <> help "Add if non-existent, overwrite if existent and different.")
   <|> flag' Update
     ( short 'u'
     <> long "update"
