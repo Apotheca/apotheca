@@ -2,6 +2,8 @@
 
 A simple, encrypted, (soon-to-be) distributed data store.
 
+## Development
+
 ### Please note:
 This is a work-in-progress and proof of concept, currently available for demonstration purposes only. Capabilities are still limited to local, non-distributed repositories, and the implementation of security is incomplete.
 
@@ -143,7 +145,7 @@ By default, `put` uses the behavior specified by the config, but by using flags,
 
 We can use `--hash` to specify that a plaintext checksum is to be calculated using `Tiger` and the salt `foo`. `--no-hash` can be also be specified, in order to force non-calculation of the checksum. This checksum is used when a file is being overwritten - the incoming data may be hashed and if it matches, the write is aborted because it is unnecessary.
 
-> NOTE: Because of this, new transformations will not be applied to existing data. Overwrite should abort only if the hashes match and the transformation flags are the same.
+> NOTE: Because of this, new transformations will not be applied to existing data. Overwrite should abort only if the hashes match and the transformation flags are the same, but this is not yet the case.
 
 ```sh
 $ apo put --hash Tiger --salt foo myfiles /
@@ -178,6 +180,8 @@ $ apo put --const-split 65536 myfiles /
 > NOTE: The last block may be smaller than the rest of the blocks, as there are no options to pad it.
 
 Currently, block splitting is only applied after transformation (post-compression, post-encryption). In the future, pre-transformation splitting will be an option.
+
+If the repository has a `--large` limit specified, and the incoming file is larger, it will be `const-split` into blocks the size of the limit.
 
 ### Listing data
 
@@ -351,10 +355,6 @@ Storing blocks...
 Storing block: local/J2WCIiMszhcEUcFWuGpY4ZZzQ-fe1IrgwEMT8b5FNio=
 Persisting repo...
 ```
-
-## Development
-
-In prototyping stage
 
 ## Copyright and references
 
