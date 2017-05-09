@@ -370,7 +370,9 @@ parseHashStrat mprefix = HashStrategy
 
 parseMaybeHashStrat :: Maybe String -> Parser (Maybe HashStrategy)
 parseMaybeHashStrat mprefix = (Just <$> parseHashStrat mprefix)
-  <|> flag' Nothing (long "no-hash" <> help "No hash.")
+    <|> flag' Nothing (pflong "no-hash" <> help "No hash.")
+  where
+    pflong lng = long $ maybe lng (\pf -> concat [pf,"-",lng]) mprefix
 
 parseCipherStrat :: Parser CipherStrategy
 parseCipherStrat = CipherStrategy
