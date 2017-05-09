@@ -219,6 +219,20 @@ Getting: /myfiles/stuff/otherthings.txt
 Getting: /myfiles/stuff/things.txt
 ```
 
+### Deleting data
+
+The data can be removed from the repository using `del`. A directory will not be deleted if it is not empty, unless `-f` is used to force deletion.
+
+```sh
+apo del -r myfiles
+```
+
+Calling `del` on root `/` will delete its children, but not the root directory itself.
+
+```sh
+$ apo del -f /
+```
+
 ### STDIN and STDOUT
 
 Sometimes, we do not want to read from or write to a file. At times, it is useful to read data from `stdin` and write it to `stdout`. Following the convention of many existing tools, if the source or destination is specified as `-`, we treat it as coming from `stdin` or `stdout` respectively. This allows `apo` to be chained with other command-line tools.
