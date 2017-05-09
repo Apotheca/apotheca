@@ -115,6 +115,8 @@ parseCommand = subparser
   -- Query
   <> subcmd "where" "Find and print store directory, if it exists." (pure Where)
   <> subcmd "info" "Print store info." (pure Info)
+  <> subcmd "hashes" "Print available hashes" (pure Hashes)
+  <> subcmd "ciphers" "Print available ciphers" (pure Ciphers)
   -- Map-like
   <> subcmd "list" "List files in a store." parseList
   <> subcmd "get" "Get a file from a store." parseGet

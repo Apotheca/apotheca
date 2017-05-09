@@ -4,6 +4,7 @@ module Apotheca.Security.Hash
 ( Hash (..)
 , Salt (..)
 , Digest (..)
+, availableHashes
 , unsalted
 , blake2
 , md5
@@ -66,7 +67,7 @@ data Hash
   | Whirlpool
   -- | CatHash Hash Hash
   -- | XorHash Hash Hash
-  deriving (Show, Read, Eq, Generic)
+  deriving (Show, Read, Eq, Enum, Generic)
 
 instance Serialize Hash
 instance ToJSON Hash
@@ -75,6 +76,9 @@ instance Encodable Hash
 
 type Salt = ByteString
 type Digest = ByteString
+
+availableHashes :: [Hash]
+availableHashes = enumFrom Blake2
 
 unsalted :: (Salt -> ByteString -> Digest) -> ByteString -> Digest
 unsalted f = f B.empty

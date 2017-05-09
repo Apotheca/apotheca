@@ -2,6 +2,7 @@
 
 module Apotheca.Security.Cipher
 ( Cipher (..)
+, availableCiphers
 , cipherNonceSize
 , cipherKeySize
 , runCipher
@@ -50,12 +51,15 @@ data Cipher
   | ChaCha256
   | Salsa256
   -- | NoCipher
-  deriving (Show, Read, Eq, Generic)
+  deriving (Show, Read, Eq, Enum, Generic)
 
 instance Serialize Cipher
 instance ToJSON Cipher
 instance FromJSON Cipher
 instance Encodable Cipher
+
+availableCiphers :: [Cipher]
+availableCiphers = enumFrom AES256
 
 cipherNonceSize :: Cipher -> Int
 cipherNonceSize AES256 = 16
@@ -125,6 +129,7 @@ defaultCipherStrategy = CipherStrategy
   }
 
 -- Simple derive for now: length, salt/nonce, bytes
+-- TODO: DeriveStrategy
 derive :: Int -> Nonce -> ByteString -> ByteString
 derive l s k = KDF.generate prf params k s
   where

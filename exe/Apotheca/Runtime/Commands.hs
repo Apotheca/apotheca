@@ -5,9 +5,9 @@ module Apotheca.Runtime.Commands
 
 
 
-import           Control.Monad          (foldM, void, when)
+import           Control.Monad            (foldM, void, when)
 
-import qualified Data.ByteString.Char8  as BC
+import qualified Data.ByteString.Char8    as BC
 import           Data.Maybe
 
 import           System.Directory
@@ -16,12 +16,14 @@ import           System.FilePath
 import           System.IO
 
 import           Apotheca.Encodable
-import qualified Apotheca.Logs          as Lg
+import qualified Apotheca.Logs            as Lg
 import           Apotheca.Repo.Config
 import           Apotheca.Repo.Env
 import           Apotheca.Repo.Internal
 import           Apotheca.Repo.Monad
 import           Apotheca.Repo.Path
+import           Apotheca.Security.Cipher
+import           Apotheca.Security.Hash
 
 
 
@@ -56,6 +58,8 @@ data RuntimeCommand
   | Where
   -- TODO: | Open -- basically apo where | xargs open in shell
   | Info
+  | Ciphers -- TODO: --list <|> encipher cs n src dst
+  | Hashes -- TODO: --list <|> hash hs src
   -- | Find -- Something smarter than 'list'
   -- Map-like
   | List Bool Bool FilePath -- Recurse, tree, dst
@@ -94,6 +98,8 @@ runCommand cmd e = do
     Nuke force -> runNuke force e
     Where -> runWhere e
     Info -> runInfo e
+    Hashes -> runHashes e
+    Ciphers -> runCiphers e
     _ -> do
       r <- openRepo e
       flip evalRM r $ case cmd of
@@ -168,6 +174,14 @@ runInfo e = do
   where
     v = verbosity e
     isBare = (== BareRepo) . repoType . repoEnv
+
+runHashes e = do
+  putStrLn "Available hashes:"
+  mapM_ (\h -> putStrLn ("  " ++ show h)) availableHashes
+
+runCiphers e = do
+  putStrLn "Available ciphers:"
+  mapM_ (\h -> putStrLn ("  " ++ show h)) availableCiphers
 
 -- Map-like
 
