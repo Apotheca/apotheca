@@ -238,6 +238,7 @@ If the destination is specified as `-`, we print the contents to `stdout` instea
 
 ```sh
 $ apo get foo.txt -
+foo bar baz
 ```
 
 ### Environment
