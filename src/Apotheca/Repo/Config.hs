@@ -39,7 +39,7 @@ defaultConfig = Config
   , watchedDirs = []
   }
 
-configEncoding = YAMLFormat @> NoCompression
+configEncoding = JSONFormat @> NoCompression
 
 readConfig :: FilePath -> IO Config
 readConfig p = do

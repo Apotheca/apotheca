@@ -199,6 +199,7 @@ encipherHeaderWith cs n k pt = do
       , cthash = maybe Nothing (hf ct) (cthasher cs)
       }
 
+-- NOTE: Doesn't validate secret, though it does validate the ciphertext
 decipherHeaderWith :: CipherHeader -> Secret -> ByteString -> Failable ByteString
 decipherHeaderWith ch k ct = do
     -- CryptoError_MacKeyInvalid

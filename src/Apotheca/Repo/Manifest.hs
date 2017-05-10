@@ -158,7 +158,7 @@ convertUTC = floor . utcTimeToPOSIXSeconds
 
 -- Encoding
 
-defaultManifestEncoding = YAMLFormat @> NoCompression
+defaultManifestEncoding = JSONFormat @> NoCompression
 
 readManifest :: FilePath -> IO Manifest
 readManifest p = do
