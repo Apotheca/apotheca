@@ -127,7 +127,17 @@ runCommand cmd e = do
 
 runNew cf e = do
     Lg.terse v $ "Attempting to create repo at: " ++ repoDir e
-    void . createRepo cf $ e { repoType = if bare then BareRepo else HiddenRepo }
+    p <- case masterSecret e of
+      Just p -> return $ Just p
+      Nothing -> do
+        getpass <- promptYn "Do you wish to create a master password?"
+        if getpass
+          then Just <$> promptPass
+          else return Nothing
+    void . createRepo cf $ e
+      { repoType = if bare then BareRepo else HiddenRepo
+      , masterSecret = p
+      }
   where
     v = verbosity e
     bare = cfBare cf

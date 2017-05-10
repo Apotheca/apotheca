@@ -4,6 +4,7 @@ module Apotheca.Runtime
 
 import           Options.Applicative
 
+import qualified Data.ByteString.Char8     as BC
 import           Data.Maybe
 
 import           System.Directory
@@ -69,6 +70,7 @@ buildEnv opts = do
       , intDir = iwd
       , magicSlash = optMagicSlash opts
       , verbosity = v
+      , masterSecret = BC.pack <$> optMasterSecret opts
       }
   where
     v = getVerb opts

@@ -23,6 +23,7 @@ import           Apotheca.Repo.Ignore
 import           Apotheca.Repo.Internal
 import qualified Apotheca.Repo.Manifest   as Mf
 import           Apotheca.Repo.Path
+import           Apotheca.Security.Auth
 import           Apotheca.Security.Cipher
 import           Apotheca.Security.Hash
 
@@ -214,13 +215,18 @@ createRepo cf e = do
     -- TODO: Fix / warn on creating bare repo in a directory w/ existing contents
     errorWhen (doesRepoExist rp) "Cannot create repo: Repo already exists."
     --
+    putStrLn $ "Creating repo directory."
     createDirectoryIfMissing True dp
+    putStrLn $ "Creating block directories."
     mapM_ (createDirectoryIfMissing True . (dp </>)) blockDirs
     when bare $ B.writeFile (dp </> specialName) "BARE"
+    when hasSecret $ writeAuth (dp </> "AUTH") $ generatePassthru (newHashStrategy SHA3) secret
     --
     execRM persistRepo $ newRepo cf e
   where
     bare = repoType e == BareRepo
+    hasSecret = isJust $ masterSecret e
+    Just secret = masterSecret e
     rp = repoDir e
     dp = dataDir e
 
@@ -672,10 +678,10 @@ multiplexInt f p = do
 
 
 
--- Temporary static secret for testing
+-- Single master secret
 
 getSecret :: (Monad m) => RM m ByteString
-getSecret = return "cheese"
+getSecret = fromMaybe B.empty <$> queryEnv masterSecret
 
 
 

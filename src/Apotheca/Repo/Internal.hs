@@ -319,19 +319,20 @@ instance Encodable WatchStrategy
 --  Verbosity is a good example.
 
 data Env = Env
-  { repoDir     :: FilePath
-  , repoType    :: RepoType
-  , extDir      :: FilePath -- External working path - rename `ewp`?
-  , intDir      :: Path     -- Internal working path - rename `iwp`?
-  , selManifest :: Maybe String
-  , dryRun      :: Bool  -- Dry run, don't write any changes, just log them
+  { repoDir      :: FilePath
+  , repoType     :: RepoType
+  , extDir       :: FilePath -- External working path - rename `ewp`?
+  , intDir       :: Path     -- Internal working path - rename `iwp`?
+  , selManifest  :: Maybe String
+  , dryRun       :: Bool  -- Dry run, don't write any changes, just log them
   -- , splitStrat :: SplitStrategy  -- Block splitting strat
   -- , hashStrat :: Maybe HashStrategy -- File checksums
   -- , cipherStrat :: Maybe CipherStrategy -- Symmetric cipher use
   -- , exchangeStrat :: Maybe ExchangeStrategy -- Key exchange (asymmetric / pubkey)
   -- , signingStrat :: Maybe SigningStrategy  --
-  , magicSlash  :: Bool
-  , verbosity   :: Verbosity
+  , magicSlash   :: Bool
+  , verbosity    :: Verbosity
+  , masterSecret :: Maybe ByteString
   } deriving (Show, Read, Generic)
 
 -- instance Serialize Env

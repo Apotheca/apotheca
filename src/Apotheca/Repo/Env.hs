@@ -40,6 +40,7 @@ defaultEnv = Env
   , dryRun = False
   , magicSlash = True
   , verbosity = Warn
+  , masterSecret = Nothing
   }
 
 

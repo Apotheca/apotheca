@@ -37,13 +37,14 @@ withInfo opts desc = info (helper <*> opts)
   <> footer "Goodbye."
 
 data RuntimeOptions = Options {
-    optSearchDir  :: Maybe FilePath
-  , optExtDir     :: Maybe FilePath
-  , optIntDir     :: Maybe Path
-  , optMagicSlash :: Bool
-  , optVerbosity  :: Maybe Verbosity
+    optSearchDir    :: Maybe FilePath
+  , optExtDir       :: Maybe FilePath
+  , optIntDir       :: Maybe Path
+  , optMagicSlash   :: Bool
+  , optVerbosity    :: Maybe Verbosity
+  , optMasterSecret :: Maybe String
   -- Command (always last)
-  , optCommand    :: RuntimeCommand
+  , optCommand      :: RuntimeCommand
   } deriving (Show, Read, Eq)
 
 parseOptions :: Parser RuntimeOptions
@@ -53,6 +54,7 @@ parseOptions = Options
   <*> parseIntDir
   <*> parseMagicSlash
   <*> parseVerbosity
+  <*> parseMasterSecret
   <*> parseCommand
 
 parseRepoDir :: Parser (Maybe FilePath)
@@ -106,6 +108,9 @@ parseVerbosity = optional $ flag' Silent (long "silent" <> help "Run without any
   <|> flag' Terse (long "terse" <> help "Run with >= terse print output. Default.")
   <|> flag' Verbose (long "verbose" <> help "Run with >= verbose print output.")
   <|> flag' Debug (long "debug" <> help "Run with all print output, including debug.")
+
+parseMasterSecret :: Parser (Maybe String)
+parseMasterSecret = optional $ strOption (long "password" <> help "Get master password from command-line arguments instead of prompting for from STDIN. NOTE: Use of --password exposes the master password to command-line history.")
 
 parseCommand :: Parser RuntimeCommand
 parseCommand = subparser
