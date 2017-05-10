@@ -5,13 +5,17 @@ A simple, encrypted, (soon-to-be) distributed data store.
 ## Development
 
 ### Please note:
-This is a work-in-progress and proof of concept, currently available for demonstration purposes only. Capabilities are still limited to local, non-distributed repositories, and the implementation of security is incomplete.
+This is a work-in-progress and proof of concept, currently available for demonstration purposes only. Capabilities are still limited to local, non-distributed repositories, and the security implementation is incomplete.
 
-1. Only CTR mode is used in encryption.
-2. The master password is hardcoded.
-3. Block splitting occurs only after encryption.
+Known insecurities:
 
-Because of this, do not use this tool for secure storage at this time.
+1. Only CTR mode is used in encryption. This has implications if a cipher nonce is reused.
+2. Master password is leaked to the command line history. Later, command-line improvements will fix this.
+3. Auth currently exposes the master password to the filesystem. Later, shell hooks will allow for storing this password securely.
+4. Block splitting occurs only after encryption, so encryption can not yet be applied per-block.
+5. Per-file keys are not an option yet - all encryption currently uses the master password.
+
+Because of this, please do not use this tool for secure storage at this time - it is currently available for demonstration purposes only.
 
 ## Installation
 
@@ -101,6 +105,26 @@ A bare repo does not hide the repo directory, instead storing it directly in `ST
 $ apo new --bare
 ```
 
+### Auth
+
+> NOTE: Auth currently exposes the master password to the filesystem.
+
+When creating a repository, `apo` will ask if you want to create a master password. If you choose to do so, this password will be required for interacting with the repository.
+
+To avoid having to supply the password manually every command, you may opt to `auth` the repo. This will cache the repository master password.
+
+```sh
+$ apo auth
+Enter password:
+<password>
+```
+
+To once again require that the password be supplied manually, use `unauth`. This will clear the cached repository master password.
+
+```sh
+$ apo unauth
+```
+
 ### Storing data
 
 Files and directories can be stored in the repository by using `put`:
@@ -182,6 +206,35 @@ $ apo put --const-split 65536 myfiles /
 Currently, block splitting is only applied after transformation (post-compression, post-encryption). In the future, pre-transformation splitting will be an option.
 
 If the repository has a `--large` limit specified, and the incoming file is larger, it will be `const-split` into blocks the size of the limit.
+
+#### Hashes and ciphers
+
+Available hashes can be listed with the `hashes` command:
+
+```sh
+$ apo hashes
+Available hashes:
+  Blake2
+  MD5
+  RIPEMD
+  SHA1
+  SHA2
+  SHA3
+  Skein
+  Tiger
+  Whirlpool
+```
+
+Available ciphers can be listed with the `ciphers` command:
+
+```sh
+$ apo ciphers
+Available ciphers:
+  AES256
+  Blowfish448
+  ChaCha256
+  Salsa256
+```
 
 ### Listing data
 
