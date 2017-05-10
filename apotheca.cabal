@@ -6,7 +6,7 @@ homepage:            https://github.com/Apotheca/apotheca#readme
 license:             AllRightsReserved
 license-file:        LICENSE
 author:              Author name here
-maintainer:          example@example.com
+maintainer:          chris@apotheca.io
 copyright:           2016 Author name here
 category:            Web
 build-type:          Simple
@@ -25,6 +25,7 @@ library
     -- , Apotheca.Integrations
     -- , Apotheca.Integrations.Fuse
     -- , Apotheca.Security
+    , Apotheca.Security.Auth
     , Apotheca.Security.Hash
     , Apotheca.Security.Cipher
     -- , Apotheca.Repo
