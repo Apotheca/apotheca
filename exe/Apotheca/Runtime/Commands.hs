@@ -101,7 +101,8 @@ runCommand cmd e = do
     Hashes -> runHashes e
     Ciphers -> runCiphers e
     _ -> do
-      r <- openRepo e
+      e' <- fixMasterSecret e
+      r <- openRepo e'
       flip evalRM r $ case cmd of
         Nuke force -> runNuke force
         List rc t dst -> runList rc t (convertInt dst)

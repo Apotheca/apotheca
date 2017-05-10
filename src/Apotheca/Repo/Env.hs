@@ -81,6 +81,25 @@ getRepoType p = do
     (_, True) -> Just HiddenRepo
     _ -> Nothing -- Degenerate case, shouldn't happen
 
+fixRepoType :: Env -> IO Env
+fixRepoType e = do
+  rt <- getRepoType $ repoDir e
+  return $ maybe e (\t -> e { repoType = t}) rt
+
+-- Gets password if not supplied as cmdline-arg
+fixMasterSecret :: Env -> IO Env
+fixMasterSecret e = do
+    auexists <- doesFileExist aup
+    if auexists && isNothing (masterSecret e)
+      then do
+        secret <- getCachedOrPromptPass aukp
+        return $ e { masterSecret = Just secret }
+      else return e
+  where
+    dp = dataDir e
+    aup = dp </> "AUTH"
+    aukp = dp </> "AUTHKEY"
+
 checkRepoData :: FilePath -> IO Bool
 checkRepoData p = do
   manExists <- doesFileExist $ p </> manifestName

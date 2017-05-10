@@ -230,17 +230,37 @@ createRepo cf e = do
     rp = repoDir e
     dp = dataDir e
 
+authRepo :: Env -> IO Env
+authRepo e = do
+    auexists <- doesFileExist aup
+    case (auexists, msecret) of
+      (True, Just secret) -> do
+        au <- readAuth aup
+        unless (checkAuth au secret) $ error "Incorrect auth password!"
+        return $ e { masterSecret = decodeAuth au secret }
+      (True, Nothing) -> error "Auth password required!"
+      (False, Just secret) -> do
+        when (v < Warn) $ putStrLn "[!] Auth password not validated - successful encryption / decryption not guaranteed."
+        return e
+        -- when (v < Warn) $ putStrLn "[!] Auth password not required - ignoring supplied password."
+        -- return $ e { masterSecret = Nothing }
+      (False, Nothing) -> return e
+  where
+    v = verbosity e
+    aup = dataDir e </> "AUTH"
+    msecret = masterSecret e
+
+
 -- NOTE: repoType will be overridden when opening a repo
 openRepo :: Env -> IO Repo
 openRepo e = do
     -- Ensure exists
     errorUnless (doesRepoExist rp) "Cannot open repo: Repo does not exist."
-    -- Fix repotype
-    (Just rt) <- getRepoType $ repoDir e
-    let e' = e { repoType = rt }
-        dp = dataDir e'
+    -- Check / transform secret if needed
+    e' <- authRepo e
     --
     errorUnless (checkRepoData dp) "Cannot load repo: Missing files!"
+    --
     c <- readConfig $ dp </> configName
     m <- Mf.readManifest $ dp </> manifestName
     i <- readIgnore $ dp </> ignoreName
@@ -253,6 +273,7 @@ openRepo e = do
       }
   where
     rp = repoDir e
+    dp = dataDir e
 
 persistRepo :: RIO ()
 persistRepo = do
@@ -509,7 +530,7 @@ transformDatum tf b = do
     (b'', ch)  <- if isJust $ tfCipherStrat tf
       then do
         let cs = fromJust $ tfCipherStrat tf
-        nonce <- io $ getStratNonceIO cs
+        nonce <- io $ getStratNonceIO cs -- NOTE: No need for makeNonce here
         secret <- getSecret -- Tsk tsk
         verbose $ "Encrypting with: " ++ show (calgorithm cs)
         let Right (ch, ct) = encipherHeaderWith cs nonce secret b'

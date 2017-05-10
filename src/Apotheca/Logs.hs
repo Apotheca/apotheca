@@ -35,5 +35,5 @@ logM r v s = liftIO $ logv r v s
 debug = logv Debug
 verbose = logv Verbose
 terse = logv Terse
-warn = logv Warn
-fatal = logv Fatal
+warn v = logv Warn v . ("[!] " ++)
+fatal v = logv Fatal v . ("[!!!] " ++)

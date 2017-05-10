@@ -64,7 +64,7 @@ buildEnv opts = do
       Just i -> return i
       Nothing -> buildIntDir opts sd ewd
     -- Done
-    return defaultEnv
+    fixRepoType $ defaultEnv
       { repoDir = sd
       , extDir = ewd
       , intDir = iwd
