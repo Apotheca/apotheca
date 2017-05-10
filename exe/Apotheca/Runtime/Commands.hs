@@ -62,6 +62,9 @@ data RuntimeCommand
   | Ciphers -- TODO: --list <|> encipher cs n src dst
   | Hashes -- TODO: --list <|> hash hs src
   -- | Find -- Something smarter than 'list'
+  -- Auth
+  | Auth
+  | Unauth
   -- Map-like
   | List Bool Bool FilePath -- Recurse, tree, dst
   -- TODO: Add --large :: (Maybe Bool) flag to the opr flagset
@@ -105,6 +108,8 @@ runCommand cmd e = do
       r <- openRepo e'
       flip evalRM r $ case cmd of
         Nuke force -> runNuke force
+        Auth -> runAuth $ masterSecret e'
+        Unauth -> runUnauth
         List rc t dst -> runList rc t (convertInt dst)
         Get gf rp rc src dst -> runGet gf rp rc (convertInt src) (convertExt dst)
         Put pf rp rc src dst -> runPut pf rp rc (convertExt src) (convertInt dst)
@@ -195,6 +200,22 @@ runHashes e = do
 runCiphers e = do
   putStrLn "Available ciphers:"
   mapM_ (\h -> putStrLn ("  " ++ show h)) availableCiphers
+
+-- Auth
+
+runAuth Nothing = error "Cannot auth without password."
+runAuth (Just authkey) = do
+  fp <- (</> "AUTHKEY") <$> dataPath
+  exists <- io $ doesFileExist fp
+  when exists $ warn "Overwriting existing auth!"
+  io $ B.writeFile fp authkey
+
+runUnauth = do
+  fp <- (</> "AUTHKEY") <$> dataPath
+  exists <- io $ doesFileExist fp
+  if exists
+    then io $ removeFile fp
+    else error "Cannot unauth: Auth does not exist."
 
 -- Map-like
 

@@ -122,6 +122,9 @@ parseCommand = subparser
   <> subcmd "info" "Print store info." (pure Info)
   <> subcmd "hashes" "Print available hashes" (pure Hashes)
   <> subcmd "ciphers" "Print available ciphers" (pure Ciphers)
+  -- Auth
+  <> subcmd "auth" "Caches the master password locally. Insecure - to be replaced with shell / password-retrieval mechanisms when implemented." (pure Auth)
+  <> subcmd "unauth" "Removes cached master password." (pure Unauth)
   -- Map-like
   <> subcmd "list" "List files in a store." parseList
   <> subcmd "get" "Get a file from a store." parseGet
