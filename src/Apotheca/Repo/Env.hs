@@ -2,16 +2,20 @@ module Apotheca.Repo.Env where
 
 import           Control.Monad
 
+import           Data.ByteString        (ByteString)
+import qualified Data.ByteString.Char8  as B
+import qualified Data.ByteString.Char8  as BC
 import qualified Data.List              as L (unfoldr)
 import           Data.Maybe
+
+import           System.Directory
+import           System.FilePath
+import           System.IO
 
 import           Apotheca.Logs
 import           Apotheca.Repo.Blocks
 import           Apotheca.Repo.Internal
 import           Apotheca.Repo.Path
-
-import           System.Directory
-import           System.FilePath
 
 
 
@@ -126,3 +130,46 @@ getDirectoryRecursive p = do
   dc <- getDirectory p
   dc's <- filterM doesDirectoryExist dc >>= mapM getDirectoryRecursive
   return $ dc ++ concat dc's
+
+
+-- STDIN helpers
+
+promptWith :: (String -> IO ()) -> IO a -> String -> IO a
+promptWith p a s = p s >> hFlush stdout >> a
+
+-- prompt :: String -> IO String
+-- prompt = promptWith (putStr . (++ " ")) getLine
+
+promptLn :: String -> IO String
+promptLn = promptWith putStrLn getLine
+
+promptCharLn :: String -> IO Char
+promptCharLn = promptWith putStrLn getCharImmediately
+
+promptYn :: String -> IO Bool
+promptYn s = (== 'Y') <$> promptCharLn (s ++ " Y/n")
+
+promptPass :: IO ByteString
+promptPass = BC.pack <$> promptLn "Enter password:"
+
+getCachedOrPromptPass :: FilePath -> IO ByteString
+getCachedOrPromptPass fp = do
+  exists <- doesFileExist fp
+  if exists
+    then B.readFile fp
+    else promptPass
+
+getCharImmediately :: IO Char
+getCharImmediately = withBufferMode stdin NoBuffering $ do
+  c <- getChar
+  putStrLn ""
+  hFlush stdout
+  return c
+
+withBufferMode :: Handle ->  BufferMode -> IO a -> IO a
+withBufferMode h b f = do
+  b' <- hGetBuffering h
+  hSetBuffering h b
+  a <- f
+  hSetBuffering h b'
+  return a

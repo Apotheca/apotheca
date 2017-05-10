@@ -7,6 +7,7 @@ module Apotheca.Runtime.Commands
 
 import           Control.Monad            (foldM, void, when)
 
+import qualified Data.ByteString          as B
 import qualified Data.ByteString.Char8    as BC
 import           Data.Maybe
 
@@ -95,7 +96,6 @@ runCommand cmd e = do
   case cmd of
     -- Repo-less (env-only) commands
     New cf -> runNew cf e
-    Nuke force -> runNuke force e
     Where -> runWhere e
     Info -> runInfo e
     Hashes -> runHashes e
@@ -103,6 +103,7 @@ runCommand cmd e = do
     _ -> do
       r <- openRepo e
       flip evalRM r $ case cmd of
+        Nuke force -> runNuke force
         List rc t dst -> runList rc t (convertInt dst)
         Get gf rp rc src dst -> runGet gf rp rc (convertInt src) (convertExt dst)
         Put pf rp rc src dst -> runPut pf rp rc (convertExt src) (convertInt dst)
@@ -131,18 +132,19 @@ runNew cf e = do
     v = verbosity e
     bare = cfBare cf
 
-runNuke force e = do
-    r <- openRepo e
-    Lg.terse v $ "Attempting to destroy repo at: " ++ repoDir (repoEnv r)
-    confirmed <- if force
-      then return True
-      else promptYn "Confirm nuke?"
-    if confirmed
-      then do
-        Lg.terse v "Destroying repo..."
-        evalRM destroyRepo r
-      else Lg.terse v "Aborting nuke..."
-  where v = verbosity e
+runNuke :: Bool -> RIO ()
+runNuke force = do
+  dp <- dataPath
+  terse $ "Destroying repo at: " ++ dp
+  confirmed <- if force
+    then return True
+    else io $ promptYn "Confirm?"
+  if confirmed
+    then do
+      verbose "Destroying repo..."
+      destroyRepo
+      terse "Repo destroyed."
+    else terse "Aborted."
 
 -- Query commands
 
@@ -233,32 +235,8 @@ runNode r = undefined
 
 -- Helpers
 
-prompt :: String -> IO String
-prompt s = putStr (s ++ " ") >> hFlush stdout >> getLine
-
-promptChar :: String -> IO Char
-promptChar s = putStr (s ++ " ") >> hFlush stdout >> getCharImmediately
-
-promptYn :: String -> IO Bool
-promptYn s = (== 'Y') <$> promptChar (s ++ " Y/n")
-
-getCharImmediately :: IO Char
-getCharImmediately = withBufferMode stdin NoBuffering $ do
-  c <- getChar
-  putStrLn ""
-  hFlush stdout
-  return c
-
 printPairs :: [(String,String)] -> IO ()
 printPairs = mapM_ (\(s,v) -> putStrLn $ concat ["\t",s,": ",v])
-
-withBufferMode :: Handle ->  BufferMode -> IO a -> IO a
-withBufferMode h b f = do
-  b' <- hGetBuffering h
-  hSetBuffering h b
-  a <- f
-  hSetBuffering h b'
-  return a
 
 envPairs e =
   [ ("STOREDIR", repoDir e)
