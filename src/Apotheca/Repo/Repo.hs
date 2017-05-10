@@ -421,7 +421,7 @@ getPath gf rp rc src dst r = do
     getChild r src' = getPath gf rp rc src' dst' r
     filterChild p = rc || Mf.pathIsFile p (repoManifest r)
 
--- putPath - overwrite files, replace dirs, recurse children, src, dst, repo
+-- putPath - overwrite files, prune dirs, recurse children, src, dst, repo
 putPath :: PutFlags -> Bool -> Bool -> FilePath -> Path -> Repo -> IO Repo
 putPath pf rp rc src dst r = do
     efexists <- doesFileExist src

@@ -68,7 +68,7 @@ data RuntimeCommand
   -- Map-like
   | List Bool Bool FilePath -- Recurse, tree, dst
   -- TODO: Add --large :: (Maybe Bool) flag to the opr flagset
-  -- Overwrite files, replace [instead of merge] directories, recursive
+  -- Overwrite files, prune [instead of merge] directories, recursive
   | Get GetFlags Bool Bool FilePath FilePath
   | Put PutFlags Bool Bool FilePath FilePath
   -- Force, dst
@@ -111,8 +111,8 @@ runCommand cmd e = do
         Auth -> runAuth $ masterSecret e'
         Unauth -> runUnauth
         List rc t dst -> runList rc t (convertInt dst)
-        Get gf rp rc src dst -> runGet gf rp rc (convertInt src) (convertExt dst)
-        Put pf rp rc src dst -> runPut pf rp rc (convertExt src) (convertInt dst)
+        Get gf pr rc src dst -> runGet gf pr rc (convertInt src) (convertExt dst)
+        Put pf pr rc src dst -> runPut pf pr rc (convertExt src) (convertInt dst)
         Del force dst -> runDel force (convertInt dst)
         _ -> io $ putStrLn "Unimplemented command!"
   where
@@ -229,17 +229,15 @@ runList rc tree dst = do
       then error "--tree flag is not yet implemented"
       else toFilePath
 
--- runPut ow rp rc src dst r = putPath ow rp rc src dst r >>= void . persistRepo
-runPut pf rp rc src dst = if src == "-"
+runPut pf pr rc src dst = if src == "-"
     then putHandle pf stdin (fromFilePath dst) >> persistRepo
     else multiplexExt f src >> persistRepo
-  where f src' = putPath pf rp rc src' (fromFilePath dst)
+  where f src' = putPath pf pr rc src' (fromFilePath dst)
 
--- runGet ow rp rc src dst r = getPath ow rp rc src dst r >>= void . persistRepo
-runGet gf rp rc src dst = if dst == "-"
+runGet gf pr rc src dst = if dst == "-"
     then getHandle gf stdout (fromFilePath src)
     else void $ multiplexInt f src
-  where f src' = getPath gf rp rc src' dst
+  where f src' = getPath gf pr rc src' dst
 
 -- runDel force dst r = delPath force dst r >>= void . persistRepo
 runDel force dst = multiplexInt (delPath force) dst >> persistRepo

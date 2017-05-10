@@ -185,7 +185,7 @@ parseGet = Get
   -- <$> parseStdout "Print file to stdout. Ignores -orp, EXT-PATH."
   -- <$> parseOverwrite "Overwrite existing files."
   <$> parseGetFlags
-  <*> parseReplace "Replace directories instead of merging."
+  <*> parsePrune "Prune directories instead of merging."
   <*> parseRecurse "Recurse over directory contents."
   <*> parseIntPath -- "Source file or directory in store."
   <*> parseExtPath -- "Dest file or directory in store."
@@ -194,7 +194,7 @@ parsePut = Put
   -- <$> parseStdin "Input file from stdin. Ignores EXT-PATH, implies -o." -- implies /currently/
   -- <$> parseOverwrite "Overwrite existing files."
   <$> parsePutFlags
-  <*> parseReplace "Replace directories instead of merging."
+  <*> parsePrune "Prune directories instead of merging."
   <*> parseRecurse "Recurse over directory contents."
   <*> parseExtPath -- "Source file or directory in store."
   <*> parseIntPath -- "Dest file or directory in store."
@@ -299,10 +299,10 @@ parseOverwrite s = switch $
   <> help s
   )
 
-parseReplace :: String -> Parser Bool
-parseReplace s = switch $
+parsePrune :: String -> Parser Bool
+parsePrune s = switch $
   ( short 'p'
-  <> long "replace" -- maybe should be replace-dirs
+  <> long "prune" -- Prune directories
   <> help s
   )
 
@@ -313,11 +313,11 @@ parseRecurse s = switch $
   <> help s
   )
 
-parseTree :: String -> Parser Bool
-parseTree s = switch $
-  ( long "tree"
-  <> help s
-  )
+-- parseTree :: String -> Parser Bool
+-- parseTree s = switch $
+--   ( long "tree"
+--   <> help s
+--   )
 
 parseSyncMode :: Parser SyncMode
 parseSyncMode = flag' DeadDropMode (long "deaddrop" <> help "Deletes source after transaction.")

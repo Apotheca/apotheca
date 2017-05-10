@@ -708,7 +708,6 @@ getSecret = fromMaybe B.empty <$> queryEnv masterSecret
 
 -- Map-like
 -- NOTE: Paths must already be validated or an error may occur
--- TODO: Change replace-dirs to prune as in prune-missing-contents
 --  They should be identical in function, and prune is clearer (and matches 'p')
 
 listPath :: Bool -> Path -> RIO [Path]
@@ -734,9 +733,9 @@ listPath rc dst = do
 --  hash strat is for the plaintext checksum, not for comparison - not until next write.
 --  This means that each writeFoo should take care of WriteMode/Flags + pre-existing entries.
 
--- getPath - overwrite, recurse, src, dst, repo
+-- getPath - overwrite, prune recurse, src, dst, repo
 getPath :: GetFlags -> Bool -> Bool -> Path -> FilePath -> RIO ()
-getPath gf rp rc src dst = do
+getPath gf pr rc src dst = do
     efexists <- io $ doesFileExist dst'
     edexists <- io $ doesDirectoryExist dst'
     isf <- queryManifest (Mf.pathIsFile src)
@@ -763,7 +762,7 @@ getPath gf rp rc src dst = do
       (_,True) -> do -- Directory
           when efexists $
             error $ "File already exists at directory target: " ++ dst'
-          when (rp && edexists) $ do
+          when (pr && edexists) $ do
             verbose $ "Replacing existing directory:" ++ dst'
             io $ removeDirectoryRecursive dst'
           terse $ "Getting: " ++ toFilePath src
@@ -773,12 +772,12 @@ getPath gf rp rc src dst = do
   where
     wm = gfWriteMode gf
     dst' = normalise $ dst </> takeFileName (toFilePath src)
-    getChild src' = getPath gf rp rc src' dst'
+    getChild src' = getPath gf pr rc src' dst'
     filterChild p = (rc ||) <$> queryManifest (Mf.pathIsFile p) -- if rc then true else doesFileExist
 
--- putPath - overwrite files, replace dirs, recurse children, src, dst, repo
+-- putPath - overwrite files, prune dirs, recurse children, src, dst, repo
 putPath :: PutFlags -> Bool -> Bool -> FilePath -> Path -> RIO ()
-putPath pf rp rc src dst = do
+putPath pf pr rc src dst = do
     efexists <- io $ doesFileExist src
     edexists <- io $ doesDirectoryExist src
     ifexists <- queryManifest (Mf.pathIsFile dst')
@@ -816,7 +815,7 @@ putPath pf rp rc src dst = do
         when ifexists $
           error $ "File already exists at directory target: " ++ toFilePath dst'
         terse $ "Putting: " ++ src
-        if rp && idexists
+        if pr && idexists
           then do
             verbose $ "Replacing:" ++ toFilePath dst'
             delPath True dst'
@@ -831,7 +830,7 @@ putPath pf rp rc src dst = do
     hs = pfHashStrat pf
     -- Directory dst
     dst' = fromFilePath . normalise $ (toFilePath dst) </> takeFileName src
-    putChild src' = putPath pf rp rc src' dst'
+    putChild src' = putPath pf pr rc src' dst'
     -- Filter files for recursive
     filterChild p = (rc ||) <$> io (doesFileExist p) -- if rc then true else doesFileExist
 
