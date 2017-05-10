@@ -445,6 +445,9 @@ createDirectoryIfMissing recurse p m = case pathType p m of
   where
     p' = init p
 
+-- NOTE: These return full paths instead of relative paths
+--  This is in contrast to how System.Directory works with FilePaths, and needs
+--  to be changed
 readDirectory :: Path -> Manifest -> [Path]
 readDirectory p m = if pathIsDirectory p m
   then map (\n -> p ++ [n]) . dirNames . fromJust $ find p m

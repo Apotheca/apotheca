@@ -762,12 +762,26 @@ getPath gf pr rc src dst = do
       (_,True) -> do -- Directory
           when efexists $
             error $ "File already exists at directory target: " ++ dst'
-          when (pr && edexists) $ do
-            verbose $ "Replacing existing directory:" ++ dst'
-            io $ removeDirectoryRecursive dst'
           terse $ "Getting: " ++ toFilePath src
-          io $ createDirectoryIfMissing True dst'
-          readManifestDirectory src >>= filterM filterChild >>= mapM_ getChild
+          -- TODO: Consider filterM filterChild /before/ vs /after/ pruning behavior differences
+          --  Before: prunes child directories unless -r
+          --  After: ???
+          --  Current implementation: before
+          -- NOTE: Magic slash interferes a little bit with pruning
+          --  If multiplexed, immediate children of the destination will not be pruned
+          --  This is most visible with `apo get -orp / .` vs `apo --no-magic-slash get -orp / .`
+          children <- readManifestDirectory src >>= filterM filterChild
+          if edexists
+            then when pr $ do
+              verbose $ "Pruning: " ++ dst'
+              children' <- io $ getDirectory dst'
+              -- NOTE: Dropping init from children - See Manifest.readDirectory
+              let cnames = map last children -- works because Path is a [String]
+              flip mapM_ children' $ \c -> when (notElem c cnames) $ do
+                debug $ "Pruning child: " ++ dst' </> c
+                io $ removePathRecursively $ dst' </> c
+            else io $ createDirectoryIfMissing True dst'
+          mapM_ getChild children
       _ -> error "Get error: Source path does not exist."
   where
     wm = gfWriteMode gf
@@ -815,15 +829,20 @@ putPath pf pr rc src dst = do
         when ifexists $
           error $ "File already exists at directory target: " ++ toFilePath dst'
         terse $ "Putting: " ++ src
-        if pr && idexists
-          then do
-            verbose $ "Replacing:" ++ toFilePath dst'
-            delPath True dst'
+        children <- io (getDirectory src) >>= filterM filterChild
+        if idexists
+          then when pr $ do
+            -- NOTE: See getPath pruning notes
+            verbose $ "Pruning: " ++ toFilePath dst'
+            -- NOTE: Dropping init from children - See Manifest.readDirectory
+            children' <- map last <$> readManifestDirectory dst'
+            flip mapM_ children' $ \c -> when (notElem c children) $ do
+              debug $ "Pruning child: " ++ toFilePath (dst' ++ [c])
+              removeManifestPath True (dst' ++ [c])
           else do
             debug $ "Creating dir: " ++ toFilePath dst'
             createManifestDirectory dst'
-        -- The filterM strips child directories if non-recursive
-        io (getDirectory src) >>= filterM filterChild >>= mapM_ putChild
+        mapM_ putChild children
       _ -> error "Put error: Source path does not exist."
   where
     wm = pfWriteMode pf

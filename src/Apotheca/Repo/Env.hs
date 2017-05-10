@@ -129,6 +129,17 @@ pathAncestry p = p : pathAncestors p
 
 -- IO Helpers
 
+doesPathExist :: FilePath -> IO Bool
+doesPathExist p = do
+  fe <- doesFileExist p
+  de <- doesDirectoryExist p
+  return $ fe || de
+
+removePathRecursively :: FilePath -> IO ()
+removePathRecursively p = do
+  doesFileExist p >>= flip when (removeFile p)
+  doesDirectoryExist p >>= flip when (removeDirectoryRecursive p)
+
 getAncestors :: FilePath -> IO [FilePath]
 getAncestors p = pathAncestors <$> canonicalizePath p
 
