@@ -136,10 +136,10 @@ parseCommand = subparser
   -- <> subcmd "pull" "Pulls a path from a store." parsePull
   -- <> subcmd "transfer" "Transfers a path between stores." parseTransfer
   -- Watch
-  -- <> subcmd "watch" "Adds a directory to the watchlist." parseWatch
-  -- <> subcmd "unwatch" "Removes a directory from the watchlist." parseUnwatch
+  <> subcmd "watch" "Adds a pattern / directory to the watchlist." parseWatch
+  <> subcmd "unwatch" "Removes a pattern / directory from the watchlist." parseUnwatch
   -- Node
-  -- <> subcmd "run" "Run a distributed node." parseRunNode
+  <> subcmd "run" "Run a distributed node." parseRunNode
   -- Non-repo commands
   <> subcmd "version" "Print version info." (pure Version)
   ) <|> pure NoCommand
@@ -213,19 +213,19 @@ parseDel = Del
 
 -- Sync strategies
 
-parsePush :: Parser RuntimeCommand
-parsePush = SyncPush
-  <$> parseSyncMode
-  <*> parseGlob
-  <*> parseExtPath
-  <*> parseIntPath
-
-parsePull :: Parser RuntimeCommand
-parsePull = SyncPull
-  <$> parseSyncMode
-  <*> parseGlob
-  <*> parseExtPath
-  <*> parseIntPath
+-- parsePush :: Parser RuntimeCommand
+-- parsePush = SyncPush
+--   <$> parseSyncMode
+--   <*> parseGlob
+--   <*> parseExtPath
+--   <*> parseIntPath
+--
+-- parsePull :: Parser RuntimeCommand
+-- parsePull = SyncPull
+--   <$> parseSyncMode
+--   <*> parseGlob
+--   <*> parseExtPath
+--   <*> parseIntPath
 
 -- parseTransfer = Transfer
 --   <$> parseSyncMode
@@ -235,16 +235,22 @@ parsePull = SyncPull
 -- Watch
 
 parseWatch :: Parser RuntimeCommand
-parseWatch = pure Watch
+parseWatch = Watch
+  <$> optional parseGlob
+  <*> parseExtPath
+  <*> parseIntPath
 
 parseUnwatch :: Parser RuntimeCommand
-parseUnwatch = pure Unwatch
+parseUnwatch = Unwatch
+  <$> optional parseGlob
+  <*> parseExtPath
 
 
 
 -- Run
 parseRunNode :: Parser RuntimeCommand
-parseRunNode = pure RunNode
+parseRunNode = RunNode
+  <$> switch (short 'w' <> long "watcher" <> help "Enable file watcher.")
 
 
 
@@ -268,12 +274,12 @@ parseIntPath = strArgument
   <> help "An internal path; if it is a relative path, is relative to INT-DIR."
   )
 
-parseGlob :: Parser (Maybe Glob)
-parseGlob = optional $ strOption
+parseGlob :: Parser Glob
+parseGlob = strOption
   ( short 'g'
   <> long "glob"
   <> metavar "GLOB"
-  <> help "Use glob pattern matching"
+  <> help "Glob match pattern."
   )
 
 parseForce :: String -> Parser Bool
@@ -324,12 +330,12 @@ parseRecurse s = switch $
 --   <> help s
 --   )
 
-parseSyncMode :: Parser SyncMode
-parseSyncMode = flag' DeadDropMode (long "deaddrop" <> help "Deletes source after transaction.")
-  -- <|> flag' (AdditiveMode True) (long "addover" <> help "Additive mode, with overwrite.")
-  <|> flag' AdditiveMode (long "additive" <> help "Additive mode, no overwrite.")
-  <|> flag' SynchronizeMode (long "synchronize" <> help "Synchronize mode; DEFAULT")
-  <|> pure SynchronizeMode
+-- parseSyncMode :: Parser SyncMode
+-- parseSyncMode = flag' DeadDropMode (long "deaddrop" <> help "Deletes source after transaction.")
+--   -- <|> flag' (AdditiveMode True) (long "addover" <> help "Additive mode, with overwrite.")
+--   <|> flag' AdditiveMode (long "additive" <> help "Additive mode, no overwrite.")
+--   <|> flag' SynchronizeMode (long "synchronize" <> help "Synchronize mode; DEFAULT")
+--   <|> pure SynchronizeMode
 
 parseGzipCompression :: Parser GzipCompression
 parseGzipCompression = flag' FastestCompression (long "gzip-fast" <> help "Compress with gzip (fast).")

@@ -9,16 +9,16 @@ module Apotheca.Repo.Watcher
 
 import           GHC.Generics
 
-import           Control.Concurrent     (threadDelay)
-import           Control.Concurrent.STM
-import           Control.Monad          (forever)
+import           Control.Concurrent      (threadDelay)
+import           Control.Concurrent.MVar
+import           Control.Monad           (forever)
 
 import           System.FSNotify
 
 import           Apotheca.Encodable
 import           Apotheca.Repo.Glob
-import           Apotheca.Repo.Internal (Config (..), Env (..), Repo (..),
-                                         WatchStrategy (..))
+import           Apotheca.Repo.Internal  (Config (..), Env (..), Repo (..),
+                                          WatchStrategy (..))
 import           Apotheca.Repo.Monad
 
 
@@ -38,20 +38,20 @@ simpleWatcher gs src dst = defaultWatcher
   , destPath = dst
   }
 
+-- MVar helper
+withMRepo :: MVar Repo -> RIO b -> IO b
+withMRepo mr = withMVar mr . evalRM
 
 -- TODO: Periodic (configurable, default 15 min) indexing to detect 'missed' files.
 -- TODO: On watcher start, synchronize to update from changes before program run
--- NOTE:
-runWatcher :: RIO ()
-runWatcher = do
-    watches <- queryConfig watchedDirs
-    tr <- getRM >>= io . newTVarIO -- TVar Repo aka tr
-    io $ withManagerConf conf $ \mgr -> do
-      -- start each watching job (in the background)
-      mapM_ (watchWithStrategy tr mgr) watches
-      -- sleep forever (until interrupted)
-      forever $ threadDelay 1000000
-    putRM =<< io (readTVarIO tr)
+runWatcher :: MVar Repo -> IO ()
+runWatcher mr = withManagerConf conf $ \mgr -> do
+    -- Get list of watch strategies
+    watches <- withMRepo mr $ (queryConfig watchedDirs)
+    -- start each watching job (in the background)
+    mapM_ (watchWithStrategy mr mgr) watches
+    -- sleep forever (until interrupted)
+    forever $ threadDelay 1000000
   where
     conf = WatchConfig
       { confDebounce = DebounceDefault
@@ -60,22 +60,23 @@ runWatcher = do
       }
 
 -- starts a watching job in the background, returning a stop IO ()
-watchWithStrategy :: TVar Repo -> WatchManager -> WatchStrategy -> IO StopListening
-watchWithStrategy tr mgr ws = do
+watchWithStrategy :: MVar Repo -> WatchManager -> WatchStrategy -> IO StopListening
+watchWithStrategy mr mgr ws = do
   watchTree
     mgr          -- manager
     (sourcePath ws) -- directory to watch
-    (const True) -- (shouldUpdate ws)
+    (shouldUpdate mr ws)
     print  -- (handleEvent w)
 
 -- NOTE: For now, we're letting the repo decide if it should-write since that logic
 --  is sort of stuck to the do-write
--- shouldUpdate :: TVar Repo -> WatchStrategy -> Event -> Bool
--- shouldUpdate tr ws e@(Added p utc) = undefined
--- shouldUpdate tr ws e@(Modified p utc) = undefined
--- shouldUpdate tr ws e@(Removed p utc) = undefined
+shouldUpdate :: MVar Repo -> WatchStrategy -> Event -> Bool
+shouldUpdate _ _ _ = True
+-- shouldUpdate mr ws e@(Added p utc) = undefined
+-- shouldUpdate mr ws e@(Modified p utc) = undefined
+-- shouldUpdate mr ws e@(Removed p utc) = undefined
 
-handleEvent :: TVar Repo -> WatchStrategy -> Event -> IO ()
-handleEvent tr ws e@(Added p utc) = undefined
-handleEvent tr ws e@(Modified p utc) = undefined
-handleEvent tr ws e@(Removed p utc) = undefined
+handleEvent :: MVar Repo -> WatchStrategy -> Event -> IO ()
+handleEvent mr ws e@(Added p utc) = undefined
+handleEvent mr ws e@(Modified p utc) = undefined
+handleEvent mr ws e@(Removed p utc) = undefined

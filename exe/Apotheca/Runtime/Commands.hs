@@ -5,10 +5,12 @@ module Apotheca.Runtime.Commands
 
 
 
+import           Control.Concurrent.MVar
 import           Control.Monad            (foldM, void, when)
 
 import qualified Data.ByteString          as B
 import qualified Data.ByteString.Char8    as BC
+import qualified Data.List                as L
 import           Data.Maybe
 
 import           System.Directory
@@ -23,6 +25,7 @@ import           Apotheca.Repo.Env
 import           Apotheca.Repo.Internal
 import           Apotheca.Repo.Monad
 import           Apotheca.Repo.Path
+import           Apotheca.Repo.Watcher
 import           Apotheca.Security.Cipher
 import           Apotheca.Security.Hash
 
@@ -80,10 +83,10 @@ data RuntimeCommand
   -- | SyncPull SyncMode (Maybe Glob) FilePath FilePath
   -- | Transfer SyncMode
   -- Watch
-  | Watch
-  | Unwatch
+  | Watch (Maybe Glob) FilePath FilePath
+  | Unwatch (Maybe Glob) FilePath
   -- Node
-  | RunNode
+  | RunNode Bool
   -- Version
   | Version
   deriving (Show, Read, Eq)
@@ -110,13 +113,20 @@ runCommand cmd e = do
       r <- openRepo e'
       flip evalRM r $ case cmd of
         Nuke force -> runNuke force
+        -- Auth
         Auth -> runAuth $ masterSecret e'
         Unauth -> runUnauth
+        -- Map-like
         Find src g -> runFind (convertInt src) g
         List rc t dst -> runList rc t (convertInt dst)
         Get gf pr rc src dst -> runGet gf pr rc (convertInt src) (convertExt dst)
         Put pf pr rc src dst -> runPut pf pr rc (convertExt src) (convertInt dst)
         Del force dst -> runDel force (convertInt dst)
+        -- Watcher
+        Watch mg src dst -> runWatch mg (convertExt src) (convertInt dst)
+        Unwatch mg src -> runUnwatch mg (convertExt src)
+        -- Node
+        RunNode rw -> runRunNode rw
         _ -> io $ putStrLn "Unimplemented command!"
   where
     v = verbosity e
@@ -259,12 +269,40 @@ runTransfer sm r = undefined
 
 -- Watches
 
-runWatch r = undefined
-runUnwatch r = undefined
+runWatch mg src dst = do
+    wd <- queryConfig watchedDirs
+    let wd' = if isJust $ L.find match wd
+                then map mutate wd
+                else wd ++ [simpleWatcher g' src dst]
+    modifyConfig (\c -> c { watchedDirs = wd' }) >> persistRepo
+  where
+    g' = case mg of
+      Just g -> [g]
+      Nothing -> []
+    match ws = sourcePath ws == src && destPath ws == dst
+    mutate ws = if match ws
+      then ws { globs = L.nub (globs ws ++ g') }
+      else ws
+
+
+runUnwatch mg src = do
+    wd <- queryConfig watchedDirs
+    let wd' = mapMaybe mutate wd
+    modifyConfig (\c -> c { watchedDirs = wd' }) >> persistRepo
+  where
+    match ws = sourcePath ws == src
+    mutate ws = if match ws
+      then case mg of
+        Just g -> Just $ ws { globs = filter (/= g) $ globs ws }
+        Nothing -> Nothing
+      else Just ws
 
 -- Run
 
-runNode r = undefined
+runRunNode rw = do
+  mr <- getRM >>= io . newMVar -- TVar Repo aka tr
+  when rw $ io $ runWatcher mr
+
 
 
 
