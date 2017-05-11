@@ -59,10 +59,10 @@ library
     -- , HFuse
 
     -- Network
-    , distributed-process >= 0.6.0
-    , network
-    , network-transport
-    , network-transport-tcp >= 0.5.1
+    -- , distributed-process >= 0.6.0
+    -- , network
+    -- , network-transport
+    -- , network-transport-tcp >= 0.5.1
 
     -- OS
     , directory
