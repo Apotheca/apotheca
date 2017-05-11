@@ -38,8 +38,6 @@ module Apotheca.Repo.Manifest
 , removeFile
 , readAccess
 , writeAccess
--- Experimental
-, globDir
 -- TODO:
 -- , reindex :: Path -> HashStrategy -> Manifest -> Manifest
 --  reindexes  file or dir children recursively using the new hashstrat
@@ -506,20 +504,6 @@ writeAccess p ah m = if pathExists p m
     else pathNotExistErr
   where
     e = fromJust $ find p m
-
-
-
--- Experimental
-
-globDir :: Path -> String -> Manifest -> ([Path],[Path])
-globDir p pat m = if pathIsDirectory p m
-    then L.partition (G.match c . toFilePath) $ readDirectoryRecursive p m
-    else isNotDirErr
-  where
-    c = G.simplify $ G.compile pat
-
-globDir' p s m = fst $ globDir p s m
-globDir'' p s m = snd $ globDir p s m
 
 
 
