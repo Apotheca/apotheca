@@ -66,6 +66,8 @@ data RuntimeCommand
   | Auth
   | Unauth
   -- Map-like
+  | Find FilePath Glob
+  -- | Filter
   | List Bool Bool FilePath -- Recurse, tree, dst
   -- TODO: Add --large :: (Maybe Bool) flag to the opr flagset
   -- Overwrite files, prune [instead of merge] directories, recursive
@@ -110,6 +112,7 @@ runCommand cmd e = do
         Nuke force -> runNuke force
         Auth -> runAuth $ masterSecret e'
         Unauth -> runUnauth
+        Find src g -> runFind (convertInt src) g
         List rc t dst -> runList rc t (convertInt dst)
         Get gf pr rc src dst -> runGet gf pr rc (convertInt src) (convertExt dst)
         Put pf pr rc src dst -> runPut pf pr rc (convertExt src) (convertInt dst)
@@ -218,6 +221,10 @@ runUnauth = do
     else error "Cannot unauth: Auth does not exist."
 
 -- Map-like
+
+runFind src g = do
+  paths <- findPath (fromFilePath src) g
+  io $ mapM_ (putStrLn . toFilePath) paths
 
 -- NOTE: No multiplexing on the list
 -- TODO: Multiplex on magic slash /only/ if explicitly set?

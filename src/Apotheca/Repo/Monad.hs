@@ -19,6 +19,7 @@ import           Apotheca.Logs            (Verbosity (..), logM)
 import           Apotheca.Repo.Blocks
 import           Apotheca.Repo.Config
 import           Apotheca.Repo.Env
+import           Apotheca.Repo.Glob
 import           Apotheca.Repo.Ignore
 import           Apotheca.Repo.Internal
 import qualified Apotheca.Repo.Manifest   as Mf
@@ -710,16 +711,21 @@ getSecret = fromMaybe B.empty <$> queryEnv masterSecret
 -- NOTE: Paths must already be validated or an error may occur
 --  They should be identical in function, and prune is clearer (and matches 'p')
 
+findPath :: Path -> Glob -> RIO [Path]
+findPath dst g = do
+  exists <- queryManifest (Mf.pathExists dst)
+  unless exists Mf.pathNotExistErr
+  paths <- map toFilePath <$> listPath True dst
+  return . map fromFilePath $ glob (gcompile g) paths
+
 listPath :: Bool -> Path -> RIO [Path]
 listPath rc dst = do
     exists <- queryManifest (Mf.pathExists dst)
-    if exists
-      then do
-        isFile <- queryManifest (Mf.pathIsFile dst)
-        if isFile
-          then return [dst]
-          else readDir dst
-      else Mf.pathNotExistErr
+    unless exists Mf.pathNotExistErr
+    isFile <- queryManifest (Mf.pathIsFile dst)
+    if isFile
+      then return [dst]
+      else readDir dst
   where
     readDir = if rc
       then readManifestDirectoryRecursive

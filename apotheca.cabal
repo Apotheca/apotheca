@@ -32,6 +32,7 @@ library
     , Apotheca.Repo.Blocks
     , Apotheca.Repo.Config
     , Apotheca.Repo.Env
+    , Apotheca.Repo.Glob
     , Apotheca.Repo.Ignore
     , Apotheca.Repo.Manifest
     , Apotheca.Repo.Monad

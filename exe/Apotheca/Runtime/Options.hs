@@ -126,6 +126,7 @@ parseCommand = subparser
   <> subcmd "auth" "Caches the master password locally. Insecure - to be replaced with shell / password-retrieval mechanisms when implemented." (pure Auth)
   <> subcmd "unauth" "Removes cached master password." (pure Unauth)
   -- Map-like
+  <> subcmd "find" "Find files based on a glob pattern." parseFind
   <> subcmd "list" "List files in a store." parseList
   <> subcmd "get" "Get a file from a store." parseGet
   <> subcmd "put" "Put a file into a store." parsePut
@@ -175,6 +176,10 @@ parseNuke = Nuke <$> parseForce "Force removal without confirmation, ignoring er
 
 
 -- Map-like
+
+parseFind = Find
+  <$> parseIntPath
+  <*> strArgument (metavar "GLOB" <> help "Glob pattern match.")
 
 parseList = List
   <$> parseRecurse "List directories recursively."
