@@ -163,7 +163,7 @@ readManifest p = do
   mcfg <- decodeWithFile p defaultManifestEncoding
   case mcfg of
     Just cfg -> return cfg
-    Nothing -> error $ "Could not parse config."
+    Nothing -> error $ "Could not parse manifest."
 
 writeManifest :: FilePath -> Manifest -> IO ()
 writeManifest p = encodeWithFile p defaultManifestEncoding
