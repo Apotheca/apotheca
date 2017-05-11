@@ -17,12 +17,12 @@ import           System.Directory         (makeAbsolute)
 import           Apotheca.Bytes
 import           Apotheca.Encodable
 import           Apotheca.Repo.Path       (Path)
-import           Apotheca.Repo.Watcher
 import           Apotheca.Security.Cipher
 import           Apotheca.Security.Hash
 
 import           Apotheca.Logs
-import           Apotheca.Repo.Internal   (Config (..), SplitStrategy (..))
+import           Apotheca.Repo.Internal   (Config (..), SplitStrategy (..),
+                                           WatchStrategy (..))
 
 
 

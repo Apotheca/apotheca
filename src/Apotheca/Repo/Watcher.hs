@@ -1,8 +1,7 @@
 module Apotheca.Repo.Watcher
 ( WatchStrategy (..)
-, SyncMode (..)
 , defaultWatcher
-, watcher
+, simpleWatcher
 , runWatcher
 ) where
 
@@ -10,91 +9,73 @@ module Apotheca.Repo.Watcher
 
 import           GHC.Generics
 
-import           Control.Concurrent  (threadDelay)
-import           Control.Monad       (forever)
+import           Control.Concurrent     (threadDelay)
+import           Control.Concurrent.STM
+import           Control.Monad          (forever)
 
 import           System.FSNotify
 
 import           Apotheca.Encodable
-import           Apotheca.Repo.Path
-import           Apotheca.Repo.Internal (SyncMode (..), Transaction (..),
-                                      WatchStrategy (..))
+import           Apotheca.Repo.Glob
+import           Apotheca.Repo.Internal (Config (..), Env (..), Repo (..),
+                                         WatchStrategy (..))
+import           Apotheca.Repo.Monad
 
 
 
 defaultWatcher = WatchStrategy
-  { syncMode = SynchronizeMode
-  , syncDirection = Push
-  , globFilter = Nothing
-  , sourcePath = "/"
-  , destPath = "."
-  , pollInterval = 5000000
-  , forcePolling = False
+  { globs = []
+  , sourcePath = "."
+  , destPath = "/"
+  -- , pollInterval = 5000000 -- 5 second poll interval?
+  -- , forcePolling = False
   }
 
-type UntargetedWatcher = (FilePath -> FilePath -> WatchStrategy)
-
--- watcher AdditiveMode +>
-
-watcher :: SyncMode -> Transaction -> Maybe [String] -> UntargetedWatcher
-watcher m d mg src dst = defaultWatcher
-  { syncMode = m
-  , syncDirection = d
-  , globFilter = mg
+simpleWatcher :: [String] -> FilePath -> FilePath -> WatchStrategy
+simpleWatcher gs src dst = defaultWatcher
+  { globs = gs
   , sourcePath = src
   , destPath = dst
   }
 
 
-
--- NOTE: For now, if a path is reused in additive / dead-drop mode, it is just
---  overwritten. In the future we may want to do stuff such as optionally rename
---  the old manifest entry, or something.
--- TODO: Rename SyncMode = | Synchronize | Additive | DeadDrop
---  This would be useful in a `caligo synchronize` command as well
-
 -- TODO: Periodic (configurable, default 15 min) indexing to detect 'missed' files.
 -- TODO: On watcher start, synchronize to update from changes before program run
-runWatcher :: WatchStrategy -> IO ()
-runWatcher w = withManagerConf conf $ \mgr -> do
-    -- start a watching job (in the background)
-    watchTree
-      mgr          -- manager
-      (sourcePath w) -- directory to watch
-      (const True) --(shouldUpdate w)-- predicate
-      print  -- (handleEvent w)
-    -- sleep forever (until interrupted)
-    forever $ threadDelay 1000000
+-- NOTE:
+runWatcher :: RIO ()
+runWatcher = do
+    watches <- queryConfig watchedDirs
+    tr <- getRM >>= io . newTVarIO -- TVar Repo aka tr
+    io $ withManagerConf conf $ \mgr -> do
+      -- start each watching job (in the background)
+      mapM_ (watchWithStrategy tr mgr) watches
+      -- sleep forever (until interrupted)
+      forever $ threadDelay 1000000
+    putRM =<< io (readTVarIO tr)
   where
     conf = WatchConfig
       { confDebounce = DebounceDefault
-      , confPollInterval = pollInterval w
-      , confUsePolling = forcePolling w
+      , confPollInterval = 1000000
+      , confUsePolling = False
       }
 
--- shouldUpdate w e@(Added p utc) = case SyncMode w of
---   SynchronizeMode -> True
---   AdditiveMode _ -> True
---   DeadDropMode -> True
--- shouldUpdate w e@(Modified p utc) = case SyncMode w of
---   SynchronizeMode -> True
---   AdditiveMode _ -> True
---   DeadDropMode -> True -- Conceivably false, but could be written and immediately updated
--- shouldUpdate w e@(Removed p utc) = case SyncMode w of
---   SynchronizeMode -> True
---   AdditiveMode _ -> False
---   DeadDropMode -> False
+-- starts a watching job in the background, returning a stop IO ()
+watchWithStrategy :: TVar Repo -> WatchManager -> WatchStrategy -> IO StopListening
+watchWithStrategy tr mgr ws = do
+  watchTree
+    mgr          -- manager
+    (sourcePath ws) -- directory to watch
+    (const True) -- (shouldUpdate ws)
+    print  -- (handleEvent w)
 
--- handleEvent :: WatchStrategy -> Event -> IO ()
--- handleEvent w e@(Added p utc) = case SyncMode w of
---   SynchronizeMode -> undefined -- Add file to repo
---   AdditiveMode -> undefined -- Add file to repo
---   DeadDropMode -> undefined -- Add file to repo, delete original
--- handleEvent w e@(Modified p utc) = case SyncMode w of
---   SynchronizeMode -> undefined -- Overwrite file in repo
---   AdditiveMode -> undefined -- Overwrite file in repo)
---   DeadDropMode -> undefined -- Add file to repo, delete original
--- handleEvent w e@(Removed p utc) = case SyncMode w of
---   SynchronizeMode -> undefined -- Remove file from reop
---   AdditiveMode -> return () -- error ""
---   DeadDropMode -> return () -- Add file to repo, delete original
+-- NOTE: For now, we're letting the repo decide if it should-write since that logic
+--  is sort of stuck to the do-write
+-- shouldUpdate :: TVar Repo -> WatchStrategy -> Event -> Bool
+-- shouldUpdate tr ws e@(Added p utc) = undefined
+-- shouldUpdate tr ws e@(Modified p utc) = undefined
+-- shouldUpdate tr ws e@(Removed p utc) = undefined
+
+handleEvent :: TVar Repo -> WatchStrategy -> Event -> IO ()
+handleEvent tr ws e@(Added p utc) = undefined
+handleEvent tr ws e@(Modified p utc) = undefined
+handleEvent tr ws e@(Removed p utc) = undefined

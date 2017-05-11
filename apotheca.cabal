@@ -49,6 +49,7 @@ library
     , bytestring
     , containers
     , mtl
+    , stm
     , transformers
     , text
 

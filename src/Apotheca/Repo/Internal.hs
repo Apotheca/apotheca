@@ -195,29 +195,29 @@ type Glob = String
 
 -- Modes
 
-data SyncMode
-  = SynchronizeMode -- Adds and deletes files to synchronize files
-  | AdditiveMode
-  | DeadDropMode -- Like additive mode, but deletes src file afterwards
-  deriving (Show, Read, Eq, Generic)
-
-instance Serialize SyncMode
-instance ToJSON SyncMode
-instance FromJSON SyncMode
-instance Encodable SyncMode
-
-
-
-data Transaction
-  = Push
-  | Pull
-  | Transfer
-  deriving (Show, Read, Eq, Generic)
-
-instance Serialize Transaction
-instance ToJSON Transaction
-instance FromJSON Transaction
-instance Encodable Transaction
+-- data SyncMode
+--   = SynchronizeMode -- Adds and deletes files to synchronize files
+--   | AdditiveMode
+--   | DeadDropMode -- Like additive mode, but deletes src file afterwards
+--   deriving (Show, Read, Eq, Generic)
+--
+-- instance Serialize SyncMode
+-- instance ToJSON SyncMode
+-- instance FromJSON SyncMode
+-- instance Encodable SyncMode
+--
+--
+--
+-- data Transaction
+--   = Push
+--   | Pull
+--   | Transfer
+--   deriving (Show, Read, Eq, Generic)
+--
+-- instance Serialize Transaction
+-- instance ToJSON Transaction
+-- instance FromJSON Transaction
+-- instance Encodable Transaction
 
 
 
@@ -295,13 +295,11 @@ data ConfigFlags = ConfigFlags
 
 -- NOTE: Watched directories are assumed to be push, and not pull
 data WatchStrategy = WatchStrategy
-  { syncMode      :: SyncMode
-  , syncDirection :: Transaction
-  , globFilter    :: Maybe [String]
-  , sourcePath    :: FilePath
-  , destPath      :: FilePath
-  , pollInterval  :: Int -- Microseconds
-  , forcePolling  :: Bool
+  { globs      :: [String]
+  , sourcePath :: FilePath
+  , destPath   :: FilePath
+  -- , pollInterval :: Int -- Microseconds
+  -- , forcePolling :: Bool
   } deriving (Show, Read, Eq, Generic)
 
 instance Serialize WatchStrategy
