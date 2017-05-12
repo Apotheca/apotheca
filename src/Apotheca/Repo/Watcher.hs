@@ -18,6 +18,7 @@ import           System.FilePath         (makeRelative, takeDirectory, (</>))
 import           System.FSNotify
 
 import           Apotheca.Encodable
+import           Apotheca.Repo.Env
 import           Apotheca.Repo.Glob
 import           Apotheca.Repo.Internal
 import           Apotheca.Repo.Monad
@@ -70,10 +71,7 @@ watchWithStrategy mr mgr ws = do
     mgr          -- manager
     (sourcePath ws) -- directory to watch
     (shouldUpdate ws)
-    (\e -> do -- print -- (handleEvent mr ws)
-      putStrLn $ "WEvent: " ++ show e
-      handleEvent mr ws e
-      )
+    (handleEvent mr ws)
 
 -- NOTE: For now, we're letting the repo decide if it should-write since that logic
 --  is sort of stuck to the do-write
@@ -90,13 +88,25 @@ matchStrategy ws p = null gs || any (flip gmatch p' . gcompile) gs
     gs = globs ws
     p' = relsrc ws p
 
+-- NOTE: OSX fsnotify events are screwed up
+--  See: https://github.com/haskell-fswatch/hfsnotify/issues/36
+-- "Solution" - figure event type from path existence
+
 handleEvent :: MVar Repo -> WatchStrategy -> Event -> IO ()
-handleEvent mr ws (Added p utc) = handleEvent mr ws (Modified p utc)
-handleEvent mr ws (Modified p utc) = modifyMRepo mr $ do
-    verbose $ "Watcher modified: " ++ toFilePath dst
-    verbose $ "Source: " ++ p'
+handleEvent mr ws (Added p utc) = handleEvent' mr ws p
+handleEvent mr ws (Modified p utc) = handleEvent' mr ws p
+handleEvent mr ws (Removed p utc) = handleEvent' mr ws p
+
+handleEvent' mr ws p = do
+  exists <- doesPathExist p
+  if exists
+    then handleWriteEvent mr ws p
+    else handleDeleteEvent mr ws p
+
+handleWriteEvent :: MVar Repo -> WatchStrategy -> FilePath -> IO ()
+handleWriteEvent mr ws p = modifyMRepo mr $ do
+    verbose $ "WModified: " ++ toFilePath dst
     putPath pf True True p dst
-    verbose $ "Success!" ++ toFilePath dst
     persistRepo
   where
     pf = PutFlags
@@ -107,12 +117,12 @@ handleEvent mr ws (Modified p utc) = modifyMRepo mr $ do
       , pfCipherStrat = Inherit
       }
     p' = relsrc ws p
-    dst = fromFilePath $ (destPath ws) </> p'
-handleEvent mr ws (Removed p utc) = modifyMRepo mr $ do
-    verbose $ "Watcher removed: " ++ toFilePath dst
-    verbose $ "Source: " ++ p'
+    dst = fromFilePath . takeDirectory $ (destPath ws) </> p'
+
+handleDeleteEvent :: MVar Repo -> WatchStrategy -> FilePath -> IO ()
+handleDeleteEvent mr ws p = modifyMRepo mr $ do
+    verbose $ "WRemoved: " ++ toFilePath dst
     delPath True dst
-    verbose $ "Success!" ++ toFilePath dst
     persistRepo
   where
     p' = relsrc ws p
