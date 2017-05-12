@@ -424,6 +424,41 @@ Storing block: local/J2WCIiMszhcEUcFWuGpY4ZZzQ-fe1IrgwEMT8b5FNio=
 Persisting repo...
 ```
 
+### Watcher
+
+> NOTE: The watcher is a new feature, and will be significantly easier to use in the future.
+
+Using `watch`, we can add directories and files to a watch-list.
+
+```sh
+apo watch /src/dir /dest/dir
+```
+
+We can be selective in what files we watch with an optional `glob` to pattern match on. Multiple watches on the same directory will add their glob patterns together.
+
+```sh
+apo watch --glob "*.hs" /some/dir /haskell
+apo watch --glob "*.hsc" /some/dir /haskell
+```
+
+We can then `run` with the `--watcher` flag, and `apo` will run as a daemon, automatically adding and deleting files to and from the repo.
+
+```sh
+apo run --watcher
+```
+
+To remove a directory from the watch-list entirely use `unwatch`.
+
+```sh
+apo unwatch /src/dir
+```
+
+By specifying a `glob` with `unwatch`, we can opt to remove just the pattern instead. Removing the last glob pattern from a watch does not remove the watch itself.
+
+```sh
+apo unwatch --glob "*.hsc" /some/dir
+```
+
 ## Copyright and references
 
 Copyright (c) 2017 apotheca.io
