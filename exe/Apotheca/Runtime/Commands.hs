@@ -5,7 +5,6 @@ module Apotheca.Runtime.Commands
 
 
 
-import           Control.Concurrent.MVar
 import           Control.Monad            (foldM, void, when)
 
 import qualified Data.ByteString          as B
@@ -24,6 +23,7 @@ import           Apotheca.Repo.Config
 import           Apotheca.Repo.Env
 import           Apotheca.Repo.Internal
 import           Apotheca.Repo.Monad
+import           Apotheca.Repo.MVar
 import           Apotheca.Repo.Path
 import           Apotheca.Repo.Watcher
 import           Apotheca.Security.Cipher
@@ -300,7 +300,7 @@ runUnwatch mg src = do
 -- Run
 
 runRunNode rw = do
-  mr <- getRM >>= io . newMVar -- TVar Repo aka tr
+  mr <- getRM >>= io . newMRepo
   when rw $ io $ runWatcher mr
 
 

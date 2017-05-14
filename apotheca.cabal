@@ -36,6 +36,7 @@ library
     , Apotheca.Repo.Ignore
     , Apotheca.Repo.Manifest
     , Apotheca.Repo.Monad
+    , Apotheca.Repo.MVar
     , Apotheca.Repo.Path
     -- , Apotheca.Repo.Repo
     , Apotheca.Repo.Internal

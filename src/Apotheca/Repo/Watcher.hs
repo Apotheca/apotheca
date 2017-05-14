@@ -5,15 +5,16 @@ module Apotheca.Repo.Watcher
 , runWatcher
 ) where
 
+-- TODO: Move this module to Apotheca.Integrations
+
 
 
 import           GHC.Generics
 
-import           Control.Concurrent      (threadDelay)
-import           Control.Concurrent.MVar
-import           Control.Monad           (forever)
+import           Control.Concurrent     (threadDelay)
+import           Control.Monad          (forever)
 
-import           System.FilePath         (makeRelative, takeDirectory, (</>))
+import           System.FilePath        (makeRelative, takeDirectory, (</>))
 
 import           System.FSNotify
 
@@ -22,7 +23,9 @@ import           Apotheca.Repo.Env
 import           Apotheca.Repo.Glob
 import           Apotheca.Repo.Internal
 import           Apotheca.Repo.Monad
+import           Apotheca.Repo.MVar
 import           Apotheca.Repo.Path
+
 
 
 defaultWatcher = WatchStrategy
@@ -40,16 +43,9 @@ simpleWatcher gs src dst = defaultWatcher
   , destPath = dst
   }
 
--- MVar helper
-withMRepo :: MVar Repo -> RIO a -> IO a
-withMRepo mr = withMVar mr . evalRM
-
-modifyMRepo :: MVar Repo -> RM IO a -> IO ()
-modifyMRepo mr = modifyMVar_  mr . execRM
-
 -- TODO: Periodic (configurable, default 15 min) indexing to detect 'missed' files.
 -- TODO: On watcher start, synchronize to update from changes before program run
-runWatcher :: MVar Repo -> IO ()
+runWatcher :: MRepo -> IO ()
 runWatcher mr = withManagerConf conf $ \mgr -> do
     -- Get list of watch strategies
     watches <- withMRepo mr $ queryConfig watchedDirs
@@ -65,7 +61,7 @@ runWatcher mr = withManagerConf conf $ \mgr -> do
       }
 
 -- starts a watching job in the background, returning a stop IO ()
-watchWithStrategy :: MVar Repo -> WatchManager -> WatchStrategy -> IO StopListening
+watchWithStrategy :: MRepo -> WatchManager -> WatchStrategy -> IO StopListening
 watchWithStrategy mr mgr ws = do
   watchTree
     mgr          -- manager
@@ -92,7 +88,7 @@ matchStrategy ws p = null gs || any (flip gmatch p' . gcompile) gs
 --  See: https://github.com/haskell-fswatch/hfsnotify/issues/36
 -- "Solution" - figure event type from path existence
 
-handleEvent :: MVar Repo -> WatchStrategy -> Event -> IO ()
+handleEvent :: MRepo -> WatchStrategy -> Event -> IO ()
 handleEvent mr ws (Added p utc) = handleEvent' mr ws p
 handleEvent mr ws (Modified p utc) = handleEvent' mr ws p
 handleEvent mr ws (Removed p utc) = handleEvent' mr ws p
@@ -103,8 +99,8 @@ handleEvent' mr ws p = do
     then handleWriteEvent mr ws p
     else handleDeleteEvent mr ws p
 
-handleWriteEvent :: MVar Repo -> WatchStrategy -> FilePath -> IO ()
-handleWriteEvent mr ws p = modifyMRepo mr $ do
+handleWriteEvent :: MRepo -> WatchStrategy -> FilePath -> IO ()
+handleWriteEvent mr ws p = modifyMRepo_ mr $ do
     verbose $ "WModified: " ++ toFilePath dst
     putPath pf True True p dst
     persistRepo
@@ -119,8 +115,8 @@ handleWriteEvent mr ws p = modifyMRepo mr $ do
     p' = relsrc ws p
     dst = fromFilePath . takeDirectory $ (destPath ws) </> p'
 
-handleDeleteEvent :: MVar Repo -> WatchStrategy -> FilePath -> IO ()
-handleDeleteEvent mr ws p = modifyMRepo mr $ do
+handleDeleteEvent :: MRepo -> WatchStrategy -> FilePath -> IO ()
+handleDeleteEvent mr ws p = modifyMRepo_ mr $ do
     verbose $ "WRemoved: " ++ toFilePath dst
     delPath True dst
     persistRepo
