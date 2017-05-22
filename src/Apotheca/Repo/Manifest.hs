@@ -141,10 +141,25 @@ newManifest t =  Manifest
 
 -- Access
 
-defaultAccess = AccessHeader { modifyTime = 0 }
+defaultAccess = AccessHeader
+  { modifyTime = 0
+  , metaTags = []
+  , metaPairs = []
+  }
 
 timeAccess :: Int -> AccessHeader
-timeAccess t = AccessHeader { modifyTime = t }
+timeAccess t = defaultAccess { modifyTime = t }
+
+addTags ah ts = ah { metaTags = L.nub $ metaTags ah ++ ts }
+removeTags ah ts = ah { metaTags = metaTags ah L.\\ ts }
+setTags ah ts = ah { metaTags = L.nub ts }
+clearTags ah = ah { metaTags = [] }
+
+addPairs ah ps = ah { metaPairs = L.nubBy assocComp $ metaPairs ah ++ ps }
+removePairs ah ps = ah { metaPairs = L.deleteFirstsBy assocComp (metaPairs ah) ps }
+setPairs ah ps = ah { metaPairs = L.nubBy assocComp ps }
+clearPairs ah = ah { metaPairs = [] }
+assocComp a b = fst a  == fst b
 
 -- Time
 

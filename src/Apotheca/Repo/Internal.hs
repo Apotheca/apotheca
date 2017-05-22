@@ -162,7 +162,8 @@ data AccessHeader = AccessHeader
   { modifyTime :: Int
   -- , accessTime :: Int -- NOTE: Write-intensive, not useful at this time
   -- , createTime :: Int -- NOTE: Not ctime
-  -- , metadata   :: [(String, String)] -- Future
+  , metaTags   :: [String]
+  , metaPairs  :: [(String, String)]
   } deriving (Show, Read, Generic)
 
 instance Serialize AccessHeader
