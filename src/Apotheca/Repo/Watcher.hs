@@ -3,6 +3,8 @@ module Apotheca.Repo.Watcher
 , defaultWatcher
 , simpleWatcher
 , runWatcher
+-- Exposed for now
+, syncWatcher
 ) where
 
 -- TODO: Move this module to Apotheca.Integrations
@@ -51,6 +53,8 @@ runWatcher mr = withManagerConf conf $ \mgr -> do
     watches <- withMRepo mr $ queryConfig watchedDirs
     -- start each watching job (in the background)
     mapM_ (watchWithStrategy mr mgr) watches
+    -- Perform initial syncs for changes that happened while not running
+    modifyMRepo_ mr $ mapM_ syncWatcher watches
     -- sleep forever (until interrupted)
     forever $ threadDelay 1000000
   where
@@ -59,6 +63,16 @@ runWatcher mr = withManagerConf conf $ \mgr -> do
       , confPollInterval = 1000000
       , confUsePolling = False
       }
+
+syncWatcher :: WatchStrategy -> RIO ()
+syncWatcher ws = do
+    verbose $ "Watcher sync: " ++ src ++ " -> " ++ dst
+    watcherPut ws src
+    persistRepo
+  where
+    src = sourcePath ws
+    dst = destPath ws
+
 
 -- starts a watching job in the background, returning a stop IO ()
 watchWithStrategy :: MRepo -> WatchManager -> WatchStrategy -> IO StopListening
@@ -101,9 +115,22 @@ handleEvent' mr ws p = do
 
 handleWriteEvent :: MRepo -> WatchStrategy -> FilePath -> IO ()
 handleWriteEvent mr ws p = modifyMRepo_ mr $ do
-    verbose $ "WModified: " ++ toFilePath dst
-    putPath pf True True p dst
+  watcherPut ws p
+  persistRepo
+
+handleDeleteEvent :: MRepo -> WatchStrategy -> FilePath -> IO ()
+handleDeleteEvent mr ws p = modifyMRepo_ mr $ do
+    verbose $ "Watcher remove: " ++ toFilePath dst
+    delPath True dst
     persistRepo
+  where
+    p' = relsrc ws p
+    dst = fromFilePath $ (destPath ws) </> p'
+
+watcherPut :: WatchStrategy -> FilePath -> RIO ()
+watcherPut ws p = do
+    verbose $ "Watcher write: " ++ toFilePath dst
+    putPath pf True True p dst
   where
     pf = PutFlags
       { pfWriteMode = Overwrite
@@ -114,12 +141,3 @@ handleWriteEvent mr ws p = modifyMRepo_ mr $ do
       }
     p' = relsrc ws p
     dst = fromFilePath . takeDirectory $ (destPath ws) </> p'
-
-handleDeleteEvent :: MRepo -> WatchStrategy -> FilePath -> IO ()
-handleDeleteEvent mr ws p = modifyMRepo_ mr $ do
-    verbose $ "WRemoved: " ++ toFilePath dst
-    delPath True dst
-    persistRepo
-  where
-    p' = relsrc ws p
-    dst = fromFilePath $ (destPath ws) </> p'

@@ -270,21 +270,28 @@ runTransfer sm r = undefined
 -- Watches
 
 runWatch mg src dst = do
-    wd <- queryConfig watchedDirs
-    let wd' = if isJust $ L.find match wd
-                then map mutate wd
-                else wd ++ [simpleWatcher g' src dst]
-    modifyConfig (\c -> c { watchedDirs = wd' }) >> persistRepo
+    wds <- queryConfig watchedDirs
+    case L.find match wds of
+      -- Update existing
+      Just ws -> do
+        let ws' = addGlob ws
+        setWatchedDirs $ map (\w -> if match w then ws' else w) wds
+        syncWatcher ws'
+      -- Add new
+      Nothing -> do
+        setWatchedDirs $ wds ++ [newWatch]
+        syncWatcher newWatch
+    persistRepo
   where
     g' = case mg of
       Just g -> [g]
       Nothing -> []
     match ws = sourcePath ws == src && destPath ws == dst
-    mutate ws = if match ws
-      then ws { globs = L.nub (globs ws ++ g') }
-      else ws
+    newWatch = simpleWatcher g' src dst
+    addGlob ws = ws { globs = L.nub (globs ws ++ g') }
+    setWatchedDirs wds = modifyConfig (\c -> c { watchedDirs = wds })
 
-
+-- TODO: syncWatcher on unwatch
 runUnwatch mg src = do
     wd <- queryConfig watchedDirs
     let wd' = mapMaybe mutate wd
