@@ -69,7 +69,7 @@ data RuntimeCommand
   | Auth
   | Unauth
   -- Map-like
-  | Find FilePath Glob
+  | Find FilterFlags FilePath
   -- | Filter
   | List Bool Bool FilePath -- Recurse, tree, dst
   -- TODO: Add --large :: (Maybe Bool) flag to the opr flagset
@@ -117,7 +117,7 @@ runCommand cmd e = do
         Auth -> runAuth $ masterSecret e'
         Unauth -> runUnauth
         -- Map-like
-        Find src g -> runFind (convertInt src) g
+        Find ff src -> runFind ff (convertInt src)
         List rc t dst -> runList rc t (convertInt dst)
         Get gf pr rc src dst -> runGet gf pr rc (convertInt src) (convertExt dst)
         Put pf pr rc src dst -> runPut pf pr rc (convertExt src) (convertInt dst)
@@ -232,8 +232,8 @@ runUnauth = do
 
 -- Map-like
 
-runFind src g = do
-  paths <- findPath (fromFilePath src) g
+runFind ff src = do
+  paths <- findPath ff (fromFilePath src)
   io $ mapM_ (putStrLn . toFilePath) paths
 
 -- NOTE: No multiplexing on the list

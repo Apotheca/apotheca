@@ -236,7 +236,7 @@ Available ciphers:
   Salsa256
 ```
 
-### Listing data
+### Listing and find
 
 The contents of a repository can be printed using `list`, and can be made recursive with `-r`:
 
@@ -248,6 +248,19 @@ $ apo list -r myfiles
 /myfiles/stuff/otherthings.txt
 /myfiles/stuff/things.txt
 ```
+
+The `find` command provides extra flexibility for searching a repo, allowing you to filter based on glob pattern, age, size, or entry type.
+
+```sh
+# Find all dirs beneath subdir
+$ apo find --dirs /subdir
+# Find all files starting with 'B'
+$ apo find --files --glob "**/B*" /
+# Find all *.hs files smaller than a kiB, older than a day
+$ apo find --glob "**/*.hs" --smaller 1024 --older 86400 /
+```
+
+> NOTE: Directory timestamps does not update properly when a child is added or removed. Thus, directories may report older than they should.
 
 ### Fetching data
 

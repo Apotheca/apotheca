@@ -126,7 +126,7 @@ parseCommand = subparser
   <> subcmd "auth" "Caches the master password locally. Insecure - to be replaced with shell / password-retrieval mechanisms when implemented." (pure Auth)
   <> subcmd "unauth" "Removes cached master password." (pure Unauth)
   -- Map-like
-  <> subcmd "find" "Find files based on a glob pattern." parseFind
+  <> subcmd "find" "Find files or directories based filter flags." parseFind
   <> subcmd "list" "List files in a store." parseList
   <> subcmd "get" "Get a file from a store." parseGet
   <> subcmd "put" "Put a file into a store." parsePut
@@ -178,8 +178,32 @@ parseNuke = Nuke <$> parseForce "Force removal without confirmation, ignoring er
 -- Map-like
 
 parseFind = Find
-  <$> parseIntPath
-  <*> strArgument (metavar "GLOB" <> help "Glob pattern match.")
+  <$> parseFilterFlags
+  <*> parseIntPath
+
+parseFilterFlags = FilterFlags
+  <$> optional parseGlob
+  <*> optional parseAge
+  <*> optional parseSize
+  <*> optional parseType
+
+parseAge :: Parser (Ordering, Int)
+parseAge = parseOrdPair LT (long "older" <> metavar "AGE" <> help "Match entries older than AGE relative to NOW.")
+  <|> parseOrdPair GT (long "newer" <> metavar "AGE" <> help "Match entries newer than AGE relative to NOW.")
+
+parseSize :: Parser (Ordering, Int)
+parseSize = parseOrdPair LT (long "smaller" <> metavar "SIZE" <> help "Match entries smaller than SIZE.")
+  <|> parseOrdPair GT (long "larger" <> metavar "SIZE" <> help "Match entries larger than SIZE.")
+  <|> parseOrdPair EQ (long "eqsize" <> metavar "SIZE" <> help "Match entries exactly equal to SIZE.")
+
+parseType :: Parser EntryType
+parseType = flag' FileType (long "files" <> help "Files only.")
+  <|> flag' DirType (long "dirs" <> help "Directories only.")
+
+-- parseLT :: Parser (Ordering, a)
+-- parseLT = parseOrdPair LT <$> argument auto (long "older" <> metavar "AGE" <> help "Match entries older than AGE")
+
+parseOrdPair o fields = (\a -> (o, a)) <$> option auto fields
 
 parseList = List
   <$> parseRecurse "List directories recursively."

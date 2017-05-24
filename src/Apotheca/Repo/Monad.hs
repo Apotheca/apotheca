@@ -711,12 +711,55 @@ getSecret = fromMaybe B.empty <$> queryEnv masterSecret
 -- NOTE: Paths must already be validated or an error may occur
 --  They should be identical in function, and prune is clearer (and matches 'p')
 
--- TODO: FilterFlags -> Path -> RIO [Path]
-findPath :: Path -> Glob -> RIO [Path]
-findPath dst g = do
+findPath :: FilterFlags -> Path -> RIO [Path]
+findPath ff dst = do
   exists <- queryManifest (Mf.pathExists dst)
   unless exists Mf.pathNotExistErr
-  globT toGlobPath (gcompile g) <$> listPath True dst
+  t <- io Mf.getTime
+  listPath True dst >>= filterM (filterOnFlags t ff)
+
+filterOnFlags :: Int -> FilterFlags -> Path -> RIO Bool
+filterOnFlags t ff p = fld filters p
+  where
+    filters :: [Path -> RIO Bool]
+    -- NOTE: Order for efficiency
+    filters = catMaybes $
+      [ filterType <$> ffType ff
+      , filterGlob <$> ffGlob ff
+      , filterAge t <$> ffAge ff
+      , filterSize <$> ffSize ff
+      ]
+    fld :: [Path -> RIO Bool] -> Path -> RIO Bool
+    fld [] _ = return True
+    fld (x:xs) p = do
+      is <- x p
+      if is then fld xs p else return False
+
+-- ordFilterRM :: (Ordering, a) -> Path -> RIO Bool
+ordFilterRM :: (Monad m, Ord a) => (t -> RM m a) -> (Ordering, a) -> t -> RM m Bool
+ordFilterRM f (o, a) p = (o ==) . flip compare a <$> f p
+
+filterGlob :: Glob -> Path -> RIO Bool
+filterGlob g p = return $ gmatch (gcompile g) $ toGlobPath p
+
+-- NOTE: T is time-as-in-now, a is relative age
+-- NOTE: Directories do not get their time updated yet when their contents are modified
+filterAge :: (Monad m) => Int -> (Ordering, Int) -> Path -> RM m Bool
+filterAge t (o, a) = ordFilterRM ((modifyTime <$>) . readManifestAccess) (o, t - a)
+
+-- NOTE: Filtering on size will not return directories
+filterSize :: (Monad m) => (Ordering, Int) -> Path -> RM m Bool
+filterSize (o, a) p = do
+  isFile <- queryManifest $ Mf.pathIsFile p
+  if isFile
+    then ordFilterRM ((fhSize <$>) . readManifestFile) (o, a) p
+    else return False
+
+filterType :: (Monad m) => EntryType -> Path -> RM m Bool
+filterType t p = case t of
+  DirType -> queryManifest $ Mf.pathIsDirectory p
+  FileType -> queryManifest $ Mf.pathIsFile p
+
 
 listPath :: Bool -> Path -> RIO [Path]
 listPath rc dst = do

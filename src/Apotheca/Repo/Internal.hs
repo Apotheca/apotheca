@@ -263,10 +263,11 @@ data GetFlags = GetFlags
 --   { dfForce :: Bool
 --   } deriving (Show, Read, Eq)
 
+-- NOTE: Ints should probably be Integer
 data FilterFlags = FilterFlags
   { ffGlob :: Maybe Glob -- Filter by glob
-  , ffAge  :: Maybe (Ordering, Integer) -- Filter by age relative to NOW
-  , ffSize :: Maybe (Ordering, Integer) -- Filter by size
+  , ffAge  :: Maybe (Ordering, Int) -- Filter by age relative to NOW
+  , ffSize :: Maybe (Ordering, Int) -- Filter by size
   , ffType :: Maybe EntryType
   } deriving (Show, Read, Eq)
 
