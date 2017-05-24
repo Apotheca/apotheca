@@ -768,12 +768,9 @@ getPath gf pr rc src dst = do
           when efexists $
             error $ "File already exists at directory target: " ++ dst'
           terse $ "Getting: " ++ toFilePath src
-          -- TODO: Consider filterM filterChild /before/ vs /after/ pruning behavior differences
-          --  Before: prunes child directories unless -r
-          --  After: ???
-          --  Current implementation: before
-          -- NOTE: Magic slash interferes a little bit with pruning
-          --  If multiplexed, immediate children of the destination will not be pruned
+          -- NOTE: Magic slash takes precedence over pruning - when multiplexed
+          --  immediate children of the destination will not be pruned. This is
+          --  the logically correct behavior.
           --  This is most visible with `apo get -orp / .` vs `apo --no-magic-slash get -orp / .`
           children <- readManifestDirectory src >>= filterM filterChild
           if edexists
@@ -813,7 +810,7 @@ putPath pf pr rc src dst = do
           else return Nothing
         -- Light check, pre-read termination if possible
         whenWritable (shouldWrite wm chsrc mchdst) wm (toFilePath dst') $ do
-          terse $ "Putting: " ++ src
+          verbose $ "Checking: " ++ src
           -- Read
           bs <- readExtFile src
           -- Compare source with dest hash if it exists
@@ -828,12 +825,13 @@ putPath pf pr rc src dst = do
           -- NOTE: Redundant when chdeep == chsrc
           whenWritable (shouldWrite wm chdeep mchdst) wm (toFilePath dst') $ do
               -- Write
+              terse $ "Putting: " ++ src
               wf <- inheritPut (chTime chsrc) pf
               writeDatum wf dst' bs
       (_,True) -> do
         when ifexists $
           error $ "File already exists at directory target: " ++ toFilePath dst'
-        terse $ "Putting: " ++ src
+        verbose $ "Checking: " ++ src
         children <- io (getDirectory src) >>= filterM filterChild
         if idexists
           then when pr $ do
@@ -847,6 +845,7 @@ putPath pf pr rc src dst = do
           else do
             debug $ "Creating dir: " ++ toFilePath dst'
             createManifestDirectory dst'
+        terse $ "Putting: " ++ src
         mapM_ putChild children
       _ -> error "Put error: Source path does not exist."
   where
