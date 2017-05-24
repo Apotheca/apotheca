@@ -164,3 +164,33 @@ newFileBlockStore p = BlockStore
   , delBlock = \s bh -> deleteBlock s bh >> return p
   , hasBlock = doesBlockExist
   }
+
+
+
+-- BlockSpec
+
+-- data BlockSpec
+--   = BlockNone
+--   | BlockSingle BlockId
+--   | BlockEnum [BlockId]
+--   | BlockRange BlockId BlockId -- Inclusive
+--   | BlockUnion BlockSpec BlockSpec
+--   deriving (Show, Read, Eq, Ord)
+--
+-- instance Monoid BlockSpec where
+--   mempty = BlockNone
+--   mappend = BlockUnion
+--
+-- specList :: BlockSpec -> [BlockId]
+-- specList BlockNone = []
+-- specList (BlockSingle b) = [b]
+-- specList (BlockEnum bs) = bs
+-- specList (BlockRange mn mx) = [mn..mx]
+-- specList (BlockUnion a b) = L.nub $ specList a ++ specList b
+--
+-- specContains :: BlockSpec -> BlockId -> Bool
+-- specContains BlockNone _ = False
+-- specContains (BlockSingle a) b = a == b
+-- specContains (BlockEnum a) b = b `elem` a
+-- specContains (BlockRange mn mx) b = mn <= b && b <= mx -- NOTE: Does not function with circular keyspaces
+-- specContains (BlockUnion a a') b = specContains a b || specContains a' b
