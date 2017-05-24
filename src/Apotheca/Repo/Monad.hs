@@ -711,6 +711,7 @@ getSecret = fromMaybe B.empty <$> queryEnv masterSecret
 -- NOTE: Paths must already be validated or an error may occur
 --  They should be identical in function, and prune is clearer (and matches 'p')
 
+-- TODO: FilterFlags -> Path -> RIO [Path]
 findPath :: Path -> Glob -> RIO [Path]
 findPath dst g = do
   exists <- queryManifest (Mf.pathExists dst)

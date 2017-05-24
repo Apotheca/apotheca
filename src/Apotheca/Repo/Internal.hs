@@ -107,6 +107,11 @@ type EntryId = Integer
 type EntryMap = M.Map EntryId Entry
 type DirMap = M.Map String EntryId
 
+data EntryType
+  = DirType
+  | FileType
+  deriving (Show, Read, Eq)
+
 instance ToJSON (M.Map EntryId Entry) where
   toJSON m = toJSON $ M.elems m
 instance FromJSON (M.Map EntryId Entry) where
@@ -257,6 +262,13 @@ data GetFlags = GetFlags
 -- data DelFlags = DelFlags
 --   { dfForce :: Bool
 --   } deriving (Show, Read, Eq)
+
+data FilterFlags = FilterFlags
+  { ffGlob :: Maybe Glob -- Filter by glob
+  , ffAge  :: Maybe (Ordering, Integer) -- Filter by age relative to NOW
+  , ffSize :: Maybe (Ordering, Integer) -- Filter by size
+  , ffType :: Maybe EntryType
+  } deriving (Show, Read, Eq)
 
 
 

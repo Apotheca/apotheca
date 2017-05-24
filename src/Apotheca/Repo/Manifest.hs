@@ -320,12 +320,6 @@ unlinkParent e m = insert p' m
 
 -- Contents
 
--- Extrapolated type, not serialized
-data EntryType
-  = DirType
-  | FileType
-  deriving (Show, Read, Eq)
-
 entryType :: Entry -> EntryType
 entryType e = case contentHeader e of
   DirContents _ -> DirType
