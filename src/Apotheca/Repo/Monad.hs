@@ -715,8 +715,7 @@ findPath :: Path -> Glob -> RIO [Path]
 findPath dst g = do
   exists <- queryManifest (Mf.pathExists dst)
   unless exists Mf.pathNotExistErr
-  paths <- map toFilePath <$> listPath True dst
-  return . map fromFilePath $ glob (gcompile g) paths
+  globT toGlobPath (gcompile g) <$> listPath True dst
 
 listPath :: Bool -> Path -> RIO [Path]
 listPath rc dst = do

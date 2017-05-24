@@ -2,6 +2,7 @@ module Apotheca.Repo.Path
 ( Path (..)
 , PathElement (..)
 , toFilePath
+, toGlobPath
 , fromFilePath
 , root
 , parent
@@ -24,6 +25,13 @@ import           System.FilePath
 toFilePath :: Path -> FilePath
 toFilePath [] = [pathSeparator]
 toFilePath p = normalise $ [pathSeparator] ++ joinPath p -- L.intercalate "/"
+
+-- A glob-friendly toFilePath
+--  Path is currently absolute, so toFilePath always starts with slash, which
+--  interferes with globbing.
+toGlobPath :: Path -> FilePath
+toGlobPath = dropDrive . toFilePath
+
 fromFilePath :: FilePath -> Path
 fromFilePath [] = []
 fromFilePath p = splitDirectories . dropDrive $ normalise p
